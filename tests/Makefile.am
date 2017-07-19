@@ -34,6 +34,7 @@ endif
 # set the list of all test routines to compile
 TESTSOURCES =   \
 				testsgm_Graph_boost.cc \
+				testsgm_Graph_NodeLabelPrefix.cc \
 				testsgm_Graph_boostV_p.cc \
 				testsgm_SubGraph.cc \
 				testsgm_MR_stream.cc \
@@ -50,6 +51,7 @@ TESTSOURCES =   \
 				testggl_Rule_GMLparser.cc \
 				testggl_Rule_GML_writer.cc \
 				testggl_MR_ApplyRule.cc \
+				testggl_MR_ApplyRule_NodeLabelPrefix.cc \
 				testggl_GS_STL_pushAll.cc \
 				testggl_GS_STL_pushAllP.cc \
 				testggl_GS_STL_pushUnique.cc \

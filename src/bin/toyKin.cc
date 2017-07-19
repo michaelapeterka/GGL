@@ -9,6 +9,7 @@
 #include <iterator>
 #include <cstring>
 
+#include <boost/lexical_cast.hpp>
 
 
 #include "biu/OptionParser.hh"
@@ -78,6 +79,20 @@ getRandomNumber( const size_t maxExluding )
 
 //////////////////////////////////////////////////////////////////////////
 
+bool
+isWithoutAtomClass( sgm::Graph_Interface & graph );
+
+bool
+allWithAtomClass( sgm::Graph_Interface & graph );
+
+size_t
+extractAtomClass( ggl::chem::Molecule_Graph & mol, std::set<size_t> usedAtomClasses );
+
+size_t
+setAtomClass( ggl::chem::Molecule & mol, const std::set<size_t> usedAtomClasses, const size_t nextClassLabelOption );
+
+//////////////////////////////////////////////////////////////////////////
+
 void
 initAllowedArguments( biu::OptionMap & allowedArgs, std::string &infoText );  
 
@@ -140,6 +155,9 @@ int main( int argc, char** argv ) {
 	  // molecule input
 	ggl::chem::GroupMap moleculeGroups;
 	
+	// central idea of the implementation !! dont change !!!
+	const bool ignoreAtomClass = true;
+
 	
 	//////////////////////////////////////////////////////////////
 	// parameter parsing and checking
@@ -191,9 +209,6 @@ int main( int argc, char** argv ) {
 	} else {
 		return -1;
 	}
-
-	// TODO maybe enable multiset containers if not all atoms numbered
-	// TODO alternatively: read without atom ids and set automatically to all atoms
 
 	SMILES_container c1;
 	SMILES_container c2;
@@ -363,28 +378,54 @@ int main( int argc, char** argv ) {
 			return -1;
 		}
 		
-		if (!opts.argExist("noRuleCheck")) {
-			if (infoMode == OUT_VERBOSE) {
-				(*out) <<"\n # CHECK RULES ..."; out->flush();
-			}
+		if (infoMode == OUT_VERBOSE) {
+			(*out) <<"\n # CHECK RULES ..."; out->flush();
+		}
+		{
 			  // check if all rules are valid
 			bool allRulesOK = true;
+			// check if rules do not contain atom class information (not allowed)
 			for (size_t r=0; r<rules.size(); ++r) {
-				size_t conStatus = rules.at(r).isConsistent();
-				if( conStatus != ggl::chem::ChemRule::C_Consistent ) {
-					allRulesOK = false;
+				// check if nodes of leftside pattern are without atom class
+				ggl::chem::LeftSidePattern leftRule( rules.at(r) );
+				allRulesOK = isWithoutAtomClass( leftRule );
+				// check if node label contains class separator (not allowed)
+				if ( ! allRulesOK ) {
 					(*out) <<"\n PROBLEM : rule " <<(r+1) <<" '"
-							<<rules.at(r).getID() <<"' is not chemically correct"
-								" or contains unsupported properties:\n";
-					rules.at(r).decodeConsistencyStatus( conStatus, (*out) );
+							<<rules.at(r).getID()
+							<<"' : left side contains an atom class label separator ':', which is not allowed\n";
+					break;
+				}
+				// check if nodes of rightside pattern are without atom class
+				ggl::chem::RightSidePattern rightRule( rules.at(r) );
+				allRulesOK = isWithoutAtomClass( rightRule );
+				// check if node label contains class separator (not allowed)
+				if ( ! allRulesOK ) {
+					(*out) <<"\n PROBLEM : rule " <<(r+1) <<" '"
+							<<rules.at(r).getID()
+							<<"' : right side contains an atom class label separator ':', which is not allowed\n";
+					break;
+				}
+			}
+			// additional chemical sanity checks of rules
+			if (allRulesOK && !opts.argExist("noRuleCheck")) {
+				for (size_t r=0; r<rules.size(); ++r) {
+					size_t conStatus = rules.at(r).isConsistent();
+					if( conStatus != ggl::chem::ChemRule::C_Consistent ) {
+						allRulesOK = false;
+						(*out) <<"\n PROBLEM : rule " <<(r+1) <<" '"
+								<<rules.at(r).getID() <<"' is not chemically correct"
+									" or contains unsupported properties:\n";
+						rules.at(r).decodeConsistencyStatus( conStatus, (*out) );
+					}
 				}
 			}
 			if (!allRulesOK) {
 				return -1;
 			}
-			if (infoMode == OUT_VERBOSE) {
-				(*out) <<" DONE\n"; out->flush();
-			}
+		}
+		if (infoMode == OUT_VERBOSE) {
+			(*out) <<" DONE\n"; out->flush();
 		}
 		
 		
@@ -405,11 +446,14 @@ int main( int argc, char** argv ) {
 		if (infoMode == OUT_VERBOSE) {
 			(*out) <<"\n # PARSE INPUT ..."; out->flush();
 		}
+		size_t nextAtomClass = 1;
 		if (opts.argExist("smiles")) {
-			parseSMILES( opts.getStrVal("smiles"), targetSmiles, moleculeGroups );
+			// parse molecules from SMILES and add atom numbering
+			nextAtomClass = parseSMILES( opts.getStrVal("smiles"), targetSmiles, moleculeGroups, nextAtomClass );
 		}
 		if (opts.argExist("mols")) {
-			parseMolGML( opts.getStrVal("mols"), targetSmiles, moleculeGroups );
+			// parse molecules from GML and add atom numbering
+			nextAtomClass = parseMolGML( opts.getStrVal("mols"), targetSmiles, moleculeGroups, nextAtomClass );
 		}
 		if (infoMode == OUT_VERBOSE) {
 			(*out) <<" DONE\n"; out->flush();
@@ -420,7 +464,7 @@ int main( int argc, char** argv ) {
 				(*out) <<"\n # CORRECT INPUT ..."; out->flush();
 			}
 			  // correct aromaticity and adjacent protons of input molecules
-			correctInputMolecules( targetSmiles, producedSmiles, aromaticityPrediction, true );
+			nextAtomClass = correctInputMolecules( targetSmiles, producedSmiles, aromaticityPrediction, true, nextAtomClass );
 			  // clear input molecules
 			for (SMILES_container::iterator it=targetSmiles.begin(); it!=targetSmiles.end() ; ++it ) {
 				delete it->second;
@@ -433,30 +477,79 @@ int main( int argc, char** argv ) {
 			}
 		}
 
-		if (!opts.argExist("noInputCheck")) {
-			if (infoMode == OUT_VERBOSE) {
-				(*out) <<"\n # CHECK INPUT ..."; out->flush();
-			}
+		if (infoMode == OUT_VERBOSE) {
+			(*out) <<"\n # CHECK INPUT ..."; out->flush();
+		}
+		{
 			  // check if all rules are valid
 			bool allMolOK = true;
-			for (SMILES_container::iterator it=targetSmiles.begin(); it!=targetSmiles.end() ; ++it ) {
-				size_t conStatus = ggl::chem::MoleculeUtil::isConsistent( *(it->second) );
-				if( conStatus != ggl::chem::MoleculeUtil::C_Consistent ) {
-					allMolOK = false;
-					(*out) <<"\n PROBLEM : molecule '"
-							<<it->first <<"' is not chemically correct"
-								" or contains unsupported properties:\n";
-					ggl::chem::MoleculeUtil::decodeConsistencyStatus( conStatus, (*out) );
-//					(*out) <<ggl::chem::Molecule_Graph( *(it->second) ) <<std::endl;
+
+			// set of all atom classes already present within the input
+//			std::set<size_t> usedAtomClasses;
+
+			//////////////////////////////////////////////////////////////
+			// get used atom class labels and check for redundancy
+			//////////////////////////////////////////////////////////////
+
+//			// extract used atom class information within all molecules
+//			for (SMILES_container::iterator it=targetSmiles.begin(); allMolOK && it!=targetSmiles.end() ; ++it ) {
+//				ggl::chem::Molecule_Graph molGraph( *(it->second) );
+//				size_t redundantLabel = extractAtomClass( molGraph, usedAtomClasses );
+//				if (redundantLabel > 0) {
+//					allMolOK = false;
+//					(*out) <<"\n PROBLEM : molecule '"
+//							<<it->first <<"' contains the redundant class label '"
+//							<<redundantLabel<<"', which is not allowed\n";
+//				}
+//			}
+
+			if (allMolOK) {
+
+				//////////////////////////////////////////////////////////////
+				// number atoms without class label (excluding present labels)
+				//////////////////////////////////////////////////////////////
+
+				// extract used atom class information within all molecules
+//				size_t nextClassLabel = 1;
+//				for (SMILES_container::iterator it=targetSmiles.begin(); allMolOK && it!=targetSmiles.end() ; ++it ) {
+//					nextClassLabel = setAtomClass( *(it->second), usedAtomClasses, nextClassLabel );
+//				}
+
+				//////////////////////////////////////////////////////////////
+				// ensure all atoms are numbered within class label
+				//////////////////////////////////////////////////////////////
+
+				for (SMILES_container::iterator it=targetSmiles.begin(); allMolOK && it!=targetSmiles.end() ; ++it ) {
+					// check if molecule is without atom class information
+					ggl::chem::Molecule_Graph molGraph( *(it->second) );
+					allMolOK = allWithAtomClass( molGraph );
+					if (!allMolOK) {
+						(*out) <<"\n PROBLEM : molecule '"
+								<<it->first <<"' misses some atom classes, which is not allowed\n";
+					}
+				}
+			}
+
+			if (allMolOK && !opts.argExist("noInputCheck")) {
+				for (SMILES_container::iterator it=targetSmiles.begin(); it!=targetSmiles.end() ; ++it ) {
+					size_t conStatus = ggl::chem::MoleculeUtil::isConsistent( *(it->second) );
+					if( conStatus != ggl::chem::MoleculeUtil::C_Consistent ) {
+						allMolOK = false;
+						(*out) <<"\n PROBLEM : molecule '"
+								<<it->first <<"' is not chemically correct"
+									" or contains unsupported properties:\n";
+						ggl::chem::MoleculeUtil::decodeConsistencyStatus( conStatus, (*out) );
+					}
 				}
 			}
 			if (!allMolOK) {
 				return -1;
 			}
-			if (infoMode == OUT_VERBOSE) {
-				(*out) <<" DONE\n"; out->flush();
-			}
 		}
+		if (infoMode == OUT_VERBOSE) {
+			(*out) <<" DONE\n"; out->flush();
+		}
+
 
 		//////////////////////////////////////////////////////////////
 		// print to stream if in verbose mode
@@ -511,7 +604,7 @@ int main( int argc, char** argv ) {
 						, rateCalc
 						, true
 						, *aromaticityPrediction
-						, opts.argExist("ignoreAtomClass")
+						, ignoreAtomClass
 						, true /* enforceUniqueAtomMatch */
 						);
 
@@ -697,6 +790,8 @@ initAllowedArguments(biu::OptionMap & allowedArgs, std::string &infoText )
 		"Reads a list of molecules and chemical rules and does a chemical "
 		"reaction simulation.\n"
 		"\n"
+		"Note, neither molecules nor rules are allowed to specify atom class label information!"
+		"\n"
 		"Rules have to be in GML format (use '-ruleExample' for an example)."
 		"\n"
 		"It is possible to specify the molecules in GML format as well."
@@ -730,10 +825,6 @@ initAllowedArguments(biu::OptionMap & allowedArgs, std::string &infoText )
 							"aromaticity", true, biu::COption::CHAR,
 							"The aromaticity perception model to be used : (M)arvin general model, (O)penBabel model, or (N)o aromaticity perception.",
 							"N"));
-	allowedArgs.push_back(biu::COption(
-							"ignoreAtomClass", true, biu::COption::BOOL,
-							"If present, the atom class of molecules is ignored for rule pattern matches. "
-							"Note, rules should thus also make no use of atom class information in the pattern!"));
 	allowedArgs.push_back(biu::COption(
 							"noInputCorrection", true, biu::COption::BOOL,
 							"Dont correct the input molecules (aromaticity perception, proton filling, ...)"));
@@ -911,6 +1002,57 @@ graph [\n\
 \n\
 ==============================================\n"
                 <<std::endl;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+bool
+isWithoutAtomClass( sgm::Graph_Interface & graph )
+{
+	for (size_t i=0; i<graph.getNodeNumber(); i++) {
+		// check if node label contains class separator (not allowed)
+		if ( graph.getNodeLabel(i).find(":") != std::string::npos ) {
+			// not allowed!
+			return false;
+		}
+	}
+	// no invalid atom label found
+	return true;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+bool
+allWithAtomClass( sgm::Graph_Interface & graph )
+{
+	for (size_t i=0; i<graph.getNodeNumber(); i++) {
+		// check if node label contains class separator (required)
+		if ( graph.getNodeLabel(i).find(":") == std::string::npos
+				// ensure there is something behind the separator
+			|| graph.getNodeLabel(i).find(":")+1 >= graph.getNodeLabel(i).size() )
+		{
+			// not allowed!
+			return false;
+		}
+	}
+	// no invalid atom label found
+	return true;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+size_t
+extractAtomClass( ggl::chem::Molecule_Graph & mol, std::set<size_t> usedAtomClasses )
+{
+	for (size_t i=0; i<mol.getNodeNumber(); i++) {
+		// ensure the class label was not known
+		const size_t classLabel = ggl::chem::MoleculeUtil::getClass( mol.getNodeLabel(i) );
+		if ( classLabel > 0 && !usedAtomClasses.insert( classLabel ).second ) {
+			// return redundant class label
+			return classLabel;
+		}
+	}
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////

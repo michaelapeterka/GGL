@@ -10,6 +10,7 @@
 
 #include "ggl/RuleGraph.hh"
 #include "ggl/MR_ApplyRule.hh"
+#include "ggl/MR_ApplyRule_NodeLabelPrefix.hh"
 
 #include "ggl/chem/Molecule.hh"
 #include "ggl/chem/SMILESwriter.hh"
@@ -90,6 +91,8 @@ typedef
 	   * maintained storage, to enable a fast lookup of their SMILES !!!
 	   * Finaly, SMILES are generated using an instance of SMILESwriter !!!
 	   * 
+	   * NOTE : objects of this class are not safe to copy due to Ruler member!
+	   *
 	   *  @author Martin Mann (c) 2009 http://www.bioinf.uni-freiburg.de/~mmann/
 	   *
 	   */ 
@@ -141,7 +144,7 @@ typedef
 
 		  //! the Match_Reporter utilized to apply the rule and to produce the 
 		  //! resulting molecules that will be stored in the reaction
-		ggl::MR_ApplyRule Ruler;
+		ggl::MR_ApplyRule * Ruler;
 							
 		  //! if != NULL, for each new reaction a rate is calculated
 		const ReactionRateCalculation* rateCalculation;
@@ -164,6 +167,8 @@ typedef
 		   * @param aromaticity the aromaticity perception class to be used to
 		   *        correct rings in the product molecules after the rule
 		   *        application was done.
+		   * @param keepAtomClass whether or not atom class label information is
+		   *        to be preserved during rule rewrite
 		   */
 		MR_Reactions(	const Smiles2GraphMap& smiles2graph
 						, Smiles2GraphMap& newSmiles2graph
@@ -171,9 +176,10 @@ typedef
 						, const bool addEachComponent = false
 						, const ReactionRateCalculation * rateCalculation = NULL
 						, const AromaticityPerception & aromaticity =
-								AP_NSPDK("Marvin:general:2013"));
+								AP_NSPDK("Marvin:general:2013")
+						, const bool keepAtomClass = false );
 		
-		
+
 		  /*! Construction
 		   * 
 		   * @param smiles2graph the initial container that contains all
@@ -192,6 +198,8 @@ typedef
 		   * @param aromaticity the aromaticity perception class to be used to
 		   *        correct rings in the product molecules after the rule
 		   *        application was done.
+		   * @param keepAtomClass whether or not atom class label information is
+		   *        to be preserved during rule rewrite
 		   */
 		MR_Reactions(	const Smiles2GraphMap& smiles2graph
 						, const Smiles2GraphMap& smiles2graph2
@@ -200,7 +208,9 @@ typedef
 						, const bool addEachComponent = false
 						, const ReactionRateCalculation * rateCalculation = NULL
 						, const AromaticityPerception & aromaticity =
-								AP_NSPDK("Marvin:general:2013"));
+								AP_NSPDK("Marvin:general:2013")
+						, const bool keepAtomClass = false
+						);
 		
 		  /*! Destruction
 		   */

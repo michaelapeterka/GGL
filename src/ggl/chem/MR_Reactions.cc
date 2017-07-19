@@ -18,14 +18,18 @@ namespace ggl {
 					, Reaction_Container& reactions_
 					, const bool addEachComponent_
 					, const ReactionRateCalculation * rateCalculation_
-					, const AromaticityPerception & aromaticity )
+					, const AromaticityPerception & aromaticity
+					, const bool keepAtomClass
+					)
 	 :	SuperClass(	newSmiles2graph_
 						, smiles2graph_ )
 		, graph2smiles()
 		, reactions( reactions_ )
 		, addEachComponent(addEachComponent_)
 		, molchecker( *this, aromaticity )
-		, Ruler( molchecker, addEachComponent )
+		, Ruler( keepAtomClass
+				? new MR_ApplyRule_NodeLabelPrefix(molchecker, ":", addEachComponent)
+				: new MR_ApplyRule( molchecker, addEachComponent ) )
 		, rateCalculation(rateCalculation_)
 	{
 		typedef Graph2SmilesMap::value_type V_T;
@@ -58,7 +62,9 @@ namespace ggl {
 					, Reaction_Container& reactions_
 					, const bool addEachComponent_
 					, const ReactionRateCalculation * rateCalculation_
-					, const AromaticityPerception & aromaticity )
+					, const AromaticityPerception & aromaticity
+					, const bool keepAtomClass
+					)
 	 :	SuperClass(	newSmiles2graph_
 						, smiles2graph_
 						, smiles2graph2_ )
@@ -66,7 +72,9 @@ namespace ggl {
 		, reactions( reactions_ )
 		, addEachComponent(addEachComponent_)
 		, molchecker( *this, aromaticity )
-		, Ruler( molchecker, addEachComponent )
+		, Ruler( keepAtomClass
+				? new MR_ApplyRule_NodeLabelPrefix(molchecker, ":", addEachComponent)
+				: new MR_ApplyRule( molchecker, addEachComponent ) )
 		, rateCalculation(rateCalculation_)
 	{
 		typedef Graph2SmilesMap::value_type V_T;
@@ -166,7 +174,7 @@ namespace ggl {
 
 		  // forward the hit to the rule applier to collect the resulting
 		  // molecules via this->add() function
-		Ruler.reportHit( pattern, target, match );
+		Ruler->reportHit( pattern, target, match );
 		
 		  // check if a molecule was produced, if not abort
 		if (curReaction.products.size() == 0) {
