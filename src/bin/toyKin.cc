@@ -686,13 +686,18 @@ int main( int argc, char** argv ) {
 			(*out)	<<"  "<<(*pickedReaction) <<"\n"
 					<<std::endl;
 
+			
+			std::vector<SMILES_container::value_type::second_type> used_educts;
 			// remove educts from targetSmiles
 			for (Reaction::Metabolite_Container::const_iterator m = pickedReaction->metabolites.begin(); m != pickedReaction->metabolites.end(); m++) {
 				// get molecule
 				SMILES_container::iterator metabolite = targetSmiles.find( *m );
 				assert( metabolite != targetSmiles.end() ); // should never happen...
 				// delete molecule graph
-				delete( metabolite->second );
+				//for ( auto node_iter = metabolite -> second.node.begin(); node_iter != second.node.end();++node_iter)
+				used_educts.push_back(metabolite->second);//used_educts.push_back(*node_iter);
+				std::cout << (*metabolite->second);//<< *node_iter;
+				//delete( metabolite->second );
 				// remove metabolite from targetSmiles
 				targetSmiles.erase( metabolite );
 			}
