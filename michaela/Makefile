@@ -10,7 +10,7 @@ INCS    = -I/usr/include/openbabel-2.0
 CCFLAGS = $(FLAGS) $(WARN) $(OPTI) $(DEFS) $(INCS)
 LDFLAGS = -L/usr/lib
 LIBS    = -lopenbabel
-CPPSRC  = energy_calculation.cpp
+CPPSRC  = calce.cpp
 CPPOBJ  = $(foreach file, $(CPPSRC:.cpp=.o), $(file))
 XTRA    = Makefile
 # rules
