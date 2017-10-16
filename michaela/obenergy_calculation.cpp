@@ -13,7 +13,7 @@
 int main(int argc, char **argv)
 {
 //1. open the inputfile
-  std::ifstream input_file("mols.smi");
+  std::ifstream input_file("HCN5.smi");
   
 
 //2. open output_file for writing the canonical output
@@ -92,23 +92,35 @@ std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
     }
 
    //print the energy and the unit for the molecules
-   //looks if the SmileString is in the map already or not
+   //looks if the SmileString is already in the map or not
    //save the smilesstring and the value in a file
-   if(smiles_energy.find(SmilesString) == smiles_energy.end())
+   
+   if(smiles_energy.find(SmilesString) == smiles_energy.end())//if the string is not in the map
      {
-       value_energy = FF->Energy();
-       smiles_energy[SmilesString] = value_energy;
+       //value_energy = FF->Energy();
+       smiles_energy[SmilesString] = FF ->Energy();// value_energy;
       file_save_smiles_energy <<SmilesString << " " <<FF->Energy()<<std::endl;
      }
+   //hier fehlt noch das der string genommen wird und was er dann macht, wenn er schon in der map ist. ansonsten nimm den wert aus der map
    mol.Clear();
 
   }
- //ausgabe zur Kontrolle
+ // looking for the highest value in the map and put it out on the screen just to check
+ 
+double max_energy = 0.0;
+std::string max_string;
 
  for (std::map<std::string, double>::iterator it = smiles_energy.begin(); it!=smiles_energy.end();++it)
    {
      std::cout << "key found: " << " " << it -> first << " " << "associated value" << it -> second << std::endl;
+     if (it -> second > max_energy)
+     {
+       max_energy = it -> second;
+       max_string = it -> first;       
+     }
    }
+
+  std::cout << "Highest Energy: Smiles: " << max_string << "\n Energy: " << max_energy << std::endl; 
 
  file_manipulated.close();
  file_save_smiles_energy.close();
