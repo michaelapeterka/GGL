@@ -9,52 +9,39 @@
 #include <utility>
 #include <vector>
 #include "probe_energiecalculation.h"
-double energie_calculation(std::vector<std::string>& probe_smiles)
+#include <map>
+
+double energie_calculation(std::map<std::string, double>& probe_smiles)
 {
 
 
-//als allererstes muss der vector in ein file geschrieben werden, da sonst obenergy nichts berechnen kann
+//als allererstes inhalt der map in einen stringstream schreiben, da sonst obenergy nichts berechnen kann
+//stringstream input_smile zum speichern und lesen des uebergebenen parameters fuer die Energieberechnung(smilestrings); "fuellen" mit den SMILES-Strings (also keys) der map.
+  
 
-	std::ofstream file_zwischenspeichern("energy_smiles.smi");
-
-	for (int i = 0; i < probe_smiles.size(); i++)
+  std::stringstream input_smiles;
+  
+  for (std::map<std::string, double>::iterator it = probe_smiles.begin(); it != probe_smiles.end(); ++it)
 	{
-		file_zwischenspeichern << probe_smiles.at(i)<<std::endl; 
+	  input_smiles << it->first <<std::endl; 
 	}
-//1. open the inputfile
-  std::ifstream input_file("energy_smiles.smi");
+	
 
-
-//2. open output_file for writing the canonical output
-  std::ofstream Output_SMILES("Output_SMILES.can");
+//2. stringstream fuer output_smiles
+  
+  std::stringstream output_smiles;
   std::ofstream file_save_smiles_energy("smilesWithEnergy.smi", std::ios::app );//| std::ios::out);
 
-  //open the manipulated_inputfile for writing
-  std::ifstream file_manipulated("Output_SMILES.can");
-
+  
  //3. declare map
 
   std::map<std::string, double> smiles_energy;
   std::string SmilesString;
   double value_energy;
 
+ //4. set up openbabel format converter
 
-
-  //4. if files can not be open
- if (!input_file.is_open())
-     {
-       std::cerr << "Cannot open the file" << std::endl;
-     }
-
-
- if (! Output_SMILES.is_open())
- {
-   std::cerr << "Cannot open the output file" << std::endl;
- }
-
- //5. set up openbabel format converter
-
-       OpenBabel::OBConversion conv(&input_file,&Output_SMILES);
+ OpenBabel::OBConversion conv (&input_smiles, &output_smiles);
 
        if(!conv.SetInAndOutFormats("smi","can"))
          {
@@ -85,7 +72,7 @@ std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
 
 //read the file line by line and setup forcefield
 
- while (file_manipulated >> SmilesString)
+ while (output_smiles >> SmilesString)
   {
    if (!conv.ReadString(&mol, SmilesString))
     {
@@ -105,8 +92,7 @@ std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
 
    if(smiles_energy.find(SmilesString) == smiles_energy.end())//if the string is not in the map
      {
-       //value_energy = FF->Energy();
-       smiles_energy[SmilesString] = FF ->Energy();// value_energy;
+      smiles_energy[SmilesString] = FF ->Energy();
       file_save_smiles_energy <<SmilesString << " " <<FF->Energy()<<std::endl;
      }
    //hier fehlt noch das der string genommen wird und was er dann macht, wenn er schon in der map ist. ansonsten nimm den wert aus der map
@@ -120,7 +106,7 @@ std::string max_string;
 
  for (std::map<std::string, double>::iterator it = smiles_energy.begin(); it!=smiles_energy.end();++it)
    {
-     std::cout << "key found: " << " " << it -> first << " " << "associated value" << it -> second << std::endl;
+     //std::cout << "key found: " << " " << it -> first << " " << "associated value" << it -> second << std::endl;
      if (it -> second > max_energy)
      {
        max_energy = it -> second;
@@ -128,12 +114,11 @@ std::string max_string;
      }
    }
 
-  std::cout << "Highest Energy: Smiles: " << max_string << "\n Energy: " << max_energy << std::endl;
+ //std::cout << "Highest Energy: Smiles: " << max_string << "\n Energy: " << max_energy << std::endl;
  
- file_manipulated.close();
+ 
  file_save_smiles_energy.close();
- Output_SMILES.close();
- input_file.close();
+ 
                       
 return max_energy;
 }
