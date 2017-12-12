@@ -1,11 +1,10 @@
-#include <openbabel/obconversion.h>
-#include <openbabel/mol.h>
-#include <openbabel/forcefield.h>
-
-#include <iostream>
 #ifndef PROBE_ENERGIECALCULATION_H
 #define PROBE_ENERGIECALCULATION_H
 
+#include <openbabel/obconversion.h>
+#include <openbabel/mol.h>
+#include <openbabel/forcefield.h>
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <sstream>
