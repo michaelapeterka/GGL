@@ -636,16 +636,31 @@ int main( int argc, char** argv ) {
 				}
 			}
 			//!!!!!begin aenderung just for me to check --> not important to the projekt 
-
-			for (std::map<std::string,size_t>::const_iterator iterator1 = ruleId2reactions.begin(); iterator1 !=ruleId2reactions.end(); iterator1++)
+			//!!! ausgabe producedREactions
+			std::cout <<" ===============Produced Reactions" << std::endl;
+			for (MR_Reactions::Reaction_Container::const_iterator itt = producedReactions.begin(); itt!=producedReactions.end();itt++)
 			{
-			 std::cout << " Ausgabe ID: key: " << iterator1->first <<" value: "<< iterator1->second << std::endl;
+
+				std::cout << "Produced Reactions" << *itt << std::endl; 
 			}
+			//!!!!Ausgabe von producedSmiles/targetSmiles
+			std::cout << "================ TargetSmiles" << std::endl; 
+			for (SMILES_container::const_iterator iteratortry =targetSmiles.begin(); iteratortry != targetSmiles.end(); iteratortry++)
+			{
+			  //std::cout << std::endl << std::endl;
+			  std::cout << "Ausgabe TargetSmiles" << iteratortry->first <<endl;
+			}
+			std::cout << "===========ruleId2Reactions" << std::endl; 
+			    for (std::map<std::string,size_t>::const_iterator iterator1 = ruleId2reactions.begin(); iterator1 !=ruleId2reactions.end(); iterator1++)
+			    {
+				
+			   std::cout << " Ausgabe ID: key: " << iterator1->first <<" value: "<< iterator1->second << std::endl;
+			   }
 
 
 			//schaue, welche Regel am haufigsten vorkommt und gebe sie dann aus (normal: diese Regel herauspicken und mit dieser dann weiterarbeiten
 			//looking for highest value in ruleId2reaction
-
+			std::cout << "===========reaction which occurs most" <<std::endl;
 			      double max_value_reaction = 0.0;
 			    std::string max_string_reaction;
 
@@ -661,49 +676,88 @@ int main( int argc, char** argv ) {
 			      }
 			    std::cout << " max_string_reaction: " << max_string_reaction << " max_value_reaction: " << max_value_reaction << std::endl;
 
+			    std::cout << "===========Start calculate Boltzmannfaktor" << std::endl; 
 			    //!!Berechnung des Boltzmannfaktors: exp(-deltaE/(kB * T))
 			    //1. Berechnung von deltaE = sum_energy(producedSmiles) - sum_energy(targetSmiles)
-			        double sum_energy_producedSmiles = energie_calculation(producedSmiles);
-			        //double sum_energy_targetSmiles = energie_calculation(targetSmiles);
-			        //double deltaE = sum_energy_producedSmiles - sum_energy_targetSmiles
+			    double sum_energy_producedSmiles = energie_calculation(producedSmiles);
+			    std::cout<< "ProducedSmiles_Energy" << sum_energy_producedSmiles << std::endl;
+			    //std::cout << sum_energy_producedSmiles << endl;
+			    double sum_energy_targetSmiles = energie_calculation(targetSmiles);
+			    std::cout << "TargetSmiles_Energy" << sum_energy_targetSmiles << std::endl; 
+			    double deltaE = sum_energy_producedSmiles - sum_energy_targetSmiles;
+			    std::cout<<"Delta E" << deltaE <<std::endl;
+			      
 			    
 			    
 			    //2. die absolute Temperatur T in K 
-			    //double T = 273.15;
+			    double T = 273.15;
 			    //3. die Boltzmannkonstante kB in J/K oder in ev/K
 			       //in J/K
 			       //double power = pow(10,-23);
 							
 			       //double kB = 1.38064*power;
 			       //in eV/K
-			       //double power = pow(10,-5);
-			       //double kB = 8.61733*power;
+			       double power = pow(10,-5);
+			       double kB = 8.61733*power;
 			      
                                //Berechnung von kB*T;
-			       //double kBT = kB*T;				
+			       double kBT = kB*T;				
 			    //4.Berechnung des Boltzmanfaktors Bf
-			       //double Bf = exp(-(deltaE/kB*T));
+							     double Bf = exp(-3.5/kBT);//(deltaE/kBT));
 			    
 			       //Ausgabe Bf zur Kontrolle
-			        //std::cout << "Boltzmannfaktor" << Bf << std::endl;
+			        std::cout << "Boltzmannfaktor" << Bf << std::endl;
 			    
-			    //create the vector for the number of instances to save the Boltzmannfaktor in it
+				std::cout <<"========= vector for the reaction which has the most instances" << endl;
+			    //create the vector for the number of instances to save the Boltzmannfaktor in it and calculate the sum of the arguments of the vector
 			    std::vector<double> instances;
+			    //Deklaration der Summe fuer die Berechnung des Vektors bei der ruleapplication
+			    double sum = 0.0;
 
 			    for (int j=0;j<max_value_reaction;++j)
 			      {
 				instances.push_back(Bf);
+				sum += instances.at(j);
 			      }
-				  
+			      //Summe in die Variable Z abspeichern Z = sum(aller Boltzmannfaktoren im Vektor)
+			      double z = sum;
+
+			      //just for control
+			      std::cout << "====== normiert" << endl;
+			      std::cout << "Z = " << z;
+			      //normieren der einzelnen eintraege des vektors instances(punkt 7)
+			      double normieren;
+			      for(int k=0; k < instances.size();k++)
+				{
+				  instances.at(k)/z;
+				  std::cout << "Die normierten Werte sind:" << instances.at(k)/z;
+									       std::cout << instances.at(k);
+				}
+
+				    std::cout << std::endl;
 			    
 			    //just to controll for myself, if it worked!!!
-			    for (int i = 0; i<instances.size();++i)
-			      {
-				std::cout << "Entries vector: "<< instances.at(i) << std::endl;
-			      }
+			     for (int i = 0; i<instances.size();++i)
+			    {
+			    	std::cout << "Entries vector: "<< instances.at(i) << std::endl;
+			    }
 			    
+			     //Berechnung der random-variable um zu schauen, welche instanz verwendet wird
 
-			    
+			     double r1 = (rand()*1.0/(RAND_MAX));
+			     std::cout << "r1: " << r1 << std::endl; 
+			   
+			    double tmp = 1.0;
+			   double sum1 = 0.0;
+			  	
+			  	for(int i = 0; i < instances.size(); i++)
+				{
+					sum1 += tmp/instances.size();
+				 	if(sum1 > r1)
+					{
+						return i; 
+					}	
+				}	
 			    
 			      //!!!!! aenderung ende 
 			
@@ -738,6 +792,12 @@ int main( int argc, char** argv ) {
 				pickedRuleHist++;
 				pickedRule--;
 			}
+
+			//!!!beginn aenderung
+
+
+
+			//!!ende aenderung 
 			// pick a reaction for this rule
 			size_t pickedReactionNumber = getRandomNumber( pickedRuleHist->second );
 			// find according reaction (TODO could be done via binary search since reactions are ordered by ruleID)
@@ -770,11 +830,11 @@ int main( int argc, char** argv ) {
 				// delete molecule graph
 
 				//!!!!!
-				      //for ( auto node_iter = metabolite -> second.node.begin(); node_iter != second.node.end();++node_iter)
+				//for ( auto node_iter = metabolite -> second.node.begin(); node_iter != second.node.end();++node_iter)
 				//used_educts.push_back(metabolite->second);//used_educts.push_back(*node_iter);
 				//std::cout << (*metabolite->second);//<< *node_iter;
 
-				std::cout << "hallo " << std::endl;
+				//std::cout << "hallo welt " << std::endl;
 				//!!!!
 				delete( metabolite->second );
 				// remove metabolite from targetSmiles
