@@ -9,19 +9,26 @@
 #include <utility>
 #include <vector>
 #include "probe_energiecalculation.h"
+#include "toyChemUtil.hh"
 #include <map>
+#include <unordered_map>
 
-double energie_calculation(std::map<std::string, double>& probe_smiles)
+double energie_calculation(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smiles)
 {
 
+  //summe initialisieren fuer den return-wert
 
+  double sum = 0.0;
+  double sum1 = 0.0;
+  //declare the iterator for the map smiles_energy
+  std::map<std::string, double>::iterator iter;
 //als allererstes inhalt der map in einen stringstream schreiben, da sonst obenergy nichts berechnen kann
 //stringstream input_smile zum speichern und lesen des uebergebenen parameters fuer die Energieberechnung(smilestrings); "fuellen" mit den SMILES-Strings (also keys) der map.
   
 
   std::stringstream input_smiles;
   
-  for (std::map<std::string, double>::iterator it = probe_smiles.begin(); it != probe_smiles.end(); ++it)
+  for (SMILES_container::const_iterator it = probe_smiles.begin(); it != probe_smiles.end(); ++it)
 	{
 	  input_smiles << it->first <<std::endl; 
 	}
@@ -30,7 +37,7 @@ double energie_calculation(std::map<std::string, double>& probe_smiles)
 //2. stringstream fuer output_smiles
   
   std::stringstream output_smiles;
-  std::ofstream file_save_smiles_energy("smilesWithEnergy.smi", std::ios::app );//| std::ios::out);
+  //std::ofstream file_save_smiles_energy("smilesWithEnergy.smi", std::ios::app );//| std::ios::out);
 
   
  //3. declare map
@@ -65,7 +72,7 @@ double energie_calculation(std::map<std::string, double>& probe_smiles)
  OpenBabel::OBForceField *FF = OpenBabel::OBForceField::FindType("MMFF94");
 //not get the forcefield
 if (!FF)
-  {
+{
 std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
 }
 
@@ -89,36 +96,27 @@ std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
    //print the energy and the unit for the molecules
    //looks if the SmileString is already in the map or not
    //save the smilesstring and the value in a file
+   //!!!!achtung neu!!!!//if(smiles_energy.find(SmilesString) == smiles_energy.end())//if the string is not in the map
 
-   if(smiles_energy.find(SmilesString) == smiles_energy.end())//if the string is not in the map
-     {
-      smiles_energy[SmilesString] = FF ->Energy();
-      file_save_smiles_energy <<SmilesString << " " <<FF->Energy()<<std::endl;
-     }
-   //hier fehlt noch das der string genommen wird und was er dann macht, wenn er schon in der map ist. ansonsten nimm den wert aus der map
+   iter = smiles_energy.find(SmilesString);
+   if(iter == smiles_energy.end())
+    {
+      std::cout << "key value pair not present in the map so calculate the energy for this smilestring" << std::endl;
+      value_energy = FF->Energy();
+       smiles_energy[SmilesString] = value_energy;//FF ->Energy();
+    }
+    else
+    {
+      std::cout << "Key-value pair is present in the map" << endl;
+      value_energy = iter->second;
+      // oder : value_energy = smiles_energy[SmilesString];
+    }
+    sum += value_energy;    
    mol.Clear();
+  }//!!!!!!!
 
-  }
- // looking for the highest value in the map and put it out on the screen just to check
-
-double max_energy = 0.0;
-std::string max_string;
-
- for (std::map<std::string, double>::iterator it = smiles_energy.begin(); it!=smiles_energy.end();++it)
-   {
-     //std::cout << "key found: " << " " << it -> first << " " << "associated value" << it -> second << std::endl;
-     if (it -> second > max_energy)
-     {
-       max_energy = it -> second;
-       max_string = it -> first;
-     }
-   }
-
- //std::cout << "Highest Energy: Smiles: " << max_string << "\n Energy: " << max_energy << std::endl;
- 
- 
- file_save_smiles_energy.close();
+ return (sum);
+}
  
                       
-return max_energy;
-}
+
