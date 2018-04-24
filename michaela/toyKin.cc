@@ -59,6 +59,90 @@ getRandomNumber( const size_t maxExluding )
 }
 
 //Aenderung Gillespie Beginn
+
+//RandomNumerGenerator
+
+size_t random_number01()
+{
+	return (double(rand())/(RAND_MAX));
+}
+
+//calculate c_my
+ 
+std::vector<double> calculate_c_my(int M, double deltaE)
+{
+ std::vector<double> _c_my(M);
+ for(int c = 0 ; c<M; ++c)
+ {
+  _c_my =  deltaE;
+ }
+ return _c_my;
+}
+
+//caluculate propensity a_my
+
+std::vector<double> calculate_a_my(const std::vector<double>& h_my, const std::vector<double>& c_my)
+{
+ std::vector<double> _a_my;
+ for(size_t a = 0; a < h_my.size();++a)
+  {
+   a_my.push_back(h_my.at(a)*c_my.at(a));
+  }
+ return _a_my;
+}
+
+//Calculate a0
+
+double calculate_a0(const std::vector<double>& a_my)
+{
+ double _a0= 0.0;
+ for(size_t i = 0; i < a.size();++j)
+  {
+  _a0 += a_my.at(i);
+  }
+ return _a0;
+}
+
+//Calculate instance
+
+int calculate_instance(double deltaE, int number_of_instances, double random_number)
+{
+//kBT in kcal/mol at room temperature (298°K)
+  double kBT;
+  kBT = 0.5924;
+
+//Berechnung eines einzelnen Boltzmanfaktors BF
+  double BF;
+  BF =exp(deltaE/kBT);
+
+//Aufsummieren aller Boltzmannfaktoren (soviele wie es Instanzen gibt) zu Z; Z = Summe zur Normierung;
+  double Z = 0.0;
+  for (int z = 0; z < number_of_instances; ++z)
+   {
+    Z += BF;
+   }
+
+//Berechnen der Wahrscheinlichkeit
+  vector<double> p_BF;
+  for(int k=0; k < number_of_instances;++k)
+   {
+    p_BF.push_back(k*BF/Z);
+   }
+
+//Berechnung welche Instanz genommen wird
+  double sum = 0.0;
+  int instance = 0;
+  for(int i = 0; i < p_BF.size(); i++)
+  {
+   sum += p_BF.at(i);
+    if(sum > random_number)
+     {
+      instance= i;
+      break;
+     }
+  }
+return instance;
+}	
 //!!!Funktionsdefinition fuer die erstellung der allgemeinen smiles
 //gibt den allgemein smile zurueck ohne labelung um die anzahl der molecule population zu definieren zurueck
 
@@ -632,15 +716,73 @@ int main( int argc, char** argv ) {
 		// perform rule application iterations
 		//////////////////////////////////////////////////////////////
 
-		//!!!Definition fuer Energy_calculation produceSmiles/targetSmiles
+		//Changes for Gillespie
+		//
+		//Energy_calculation produceSmiles/targetSmiles
+		//Kalkulation der Energiedifferenz deltaE fuer die reaction rates c_mu und die dazugehoerigen Instanzen
+
+		double deltaE = 0.0;
 		double energy_producedSmiles = 0.0;
 		double energy_targetSmiles = 0.0;
 
+		energy_producedSmiles = energie_calculation(producedSmiles);
+                energy_targetSmiles =  energie_calculation(targetSmiles);
+
+		deltaE = energy_producedSmiles - energy_targetSmiles; 
+		//Calculate the molecular_population_level in targetSmile and producedSmile for the connection between h_my and the pickedRule
+		//merge them together in mpl_ts to get one map with initial population numbers
+		
+		std::map<std::string,int> mpl_ts;
+		std::map<std::string,int> mpl_ps;
+		
+                //Anzahl der molekuelpopulationen eruieren (in targetSmile)
+                  for(SMILES_container::const_iterator ts=targetSmiles.begin(); ts!= targetSmiles.end(); ++ts)
+                  {
+                    std::string generic_smile = extract_generic_smile(ts->first);
+                     if(mpl_ts.find(generic_smile) == mpl_ts.end())
+                      {
+                        mpl_ts[generic_smile] = 1;
+                      }
+                     else
+                      {
+                        mpl_ts[generic_smile]++;
+                      }
+                  }
+
+		//Anzahl der molekuelpopulationen eruieren (in producedSmile)
+                  for(SMILES_container::const_iterator ps=producedSmiles.begin(); ps!= producedSmiles.end(); ++ps)
+                  {
+                    std::string generic_smile = extract_generic_smile(ps->first);
+                     if(mpl_ps.find(generic_smile) == mpl_ps.end())
+                      {
+                        mpl_ps[generic_smile] = 1;
+                      }
+                     else
+                      {
+                        mpl_ps[generic_smile]++;
+                      }
+                  }
+
+		  //merge them together
+		  mpl_ts.insert(mpl_ps.begin(),mpl_ps.end());
+		  mpl_ps.clear();
+
+		 //initialize the time t
+                   double t = 0.0;
+
+                //Anzahl der Reaktionen M -> noch zum ermitteln
+                 int M;
+
+               //number of reactants N = targetSmiles
+               int N = mpl_ts.size();
+
+	       //vector c_my -> reaction rates (of size M)
+               //to fill c_my with the energy values
+                        vector<double> c_my;
+                       
 		//metabolites_in_producedReactions
 		std::map<string,int> metabolites_in_Reactions;
 
-		//how many metabolites in produced REcations
-		std::map<string,int> value;
 
 		//!!!Ende
 		
@@ -679,24 +821,11 @@ int main( int argc, char** argv ) {
 						, ignoreAtomClass
 						, true /* enforceUniqueAtomMatch */
 						);
-
-
-
-				//!!!versuch calculation energy produced smiles 
-				energy_producedSmiles = energie_calculation(producedSmiles);
-					cout << "deltaEnergy = " << energy_producedSmiles << endl;
-				//!!Versuch Ende
 					
 				// merge targetSmiles and producedSmiles into targetSmiles
 				targetSmiles.insert(producedSmiles.begin(), producedSmiles.end());
 				producedSmiles.clear();
-
-				//!!!!Versuch Beginn calculation energy target Smiles
-				energy_targetSmiles =  energie_calculation(targetSmiles);
-		        	cout << "Delta Energy : " << energy_targetSmiles << endl;
-			       //!!Versuch Ende
-
-									    
+				    
 				// clear reaction product container, since most will not be needed
 				for (SMILES_container::iterator it=toFill.begin(); it!=toFill.end() ; ++it ) {
 					delete it->second;
@@ -705,43 +834,22 @@ int main( int argc, char** argv ) {
 			}
 
 			// pick a reaction TODO change accordingly!!
+			//Step 1
 
+		       //Generieren der Zufallszahlen
+                           double r0 = random_number01();
+                           double r1 = random_number01();
+                           double r2 = random_number01();
+	
 			//fuer die nummerierung der Regeln
 			int rule_index = 0;
 			std::map<string,int> rule_indexs;
 			vector<string> rule_names_ids;
 			string rule_id;
 
-			//fuer die Berechnung von h_my
+			// Berechnung von h_my
 			vector<double>h_my;
-			double h_my_multiplicator = 1.0;
-
-			//molecular population level -> Anzahl der molekuelpopulationen eruieren (in targetSmile)
-                          std::map<string,int> molecular_population_level;
-
-                          for (SMILES_container::const_iterator ts=targetSmiles.begin(); ts!= targetSmiles.end(); ++ts)
-                            {
-                              std::string generic_smile = extract_generic_smile(ts->first);
-
-                              if(molecular_population_level.find(generic_smile) == molecular_population_level.end())
-                                {
-                                  molecular_population_level[generic_smile] = 1;
-                                }
-                                else
-                                {
-                                    molecular_population_level[generic_smile]++;
-                                }
-
-                            }
-
-                          //just to check -> temporary
-                           cout << "!!!!!!!!!!!!!!!Anzahl der Smiles:" << endl;
-
-                           for(map<string,int>::iterator im = molecular_population_level.begin();im != molecular_population_level.end();++im)
-                             {
-                               cout << "Smile: " << im -> first << " how often: " << im -> second << endl;
-                             }
-
+		
 			// get number of reaction instances for each rule
 			typedef std::map< std::string, size_t > RuleHist;
 			RuleHist ruleId2reactions;
@@ -763,122 +871,27 @@ int main( int argc, char** argv ) {
 				for (Reaction::Metabolite_Container::const_iterator me = r->metabolites.begin();me != r -> metabolites.end();++me)
 				  {
 					  string generic_smile = extract_generic_smile(*m);
-					  h_my_multiplicator = h_my_multiplicator*molecular_population_level[generic_smile];
+					  h_my_multiplicator = h_my_multiplicator*mpl_ts[generic_smile];
 					  
-				   /* if(metabolites_in_Reactions.find(*me) == metabolites_in_Reactions.end())
-				      {
-					metabolites_in_Reactions[*me] = 1;
-				      }
-				    else
-				      {
-					metabolites_in_Reactions[*me] ++;
-				      }
-*/
 				  }
 				//versuch 1: in der Schleife:
 				h_my.at(rule_indexs[r->rule_id]) = h_my_multiplicator; 
 			}
 			 							
 			//2. versuch: ohne connection zu rule_id --> dazu muss aber hy_multiplicator ausserhalb der schleife sein. --> tendiere eher zu version 1 anstatt version 2 
-			h_my.push_back(h_my_multiplicator);
-						
-   			//!!!!nur temporaer zur ueberpruefung
-			  /*for (std::map<string,int>::iterator iti = metabolites_in_Reactions.begin();iti!=metabolites_in_Reactions.end();++iti)
-			    {
-			      std::cout << "Metabolite: " << iti -> first << " how often: " << iti -> second << endl;
-			    }							     
-		       */
-			  
-
-			  //!!!!!Beginn Aenderung fuer Gillespie_Algorithmus!!!!!
-			  //1. Teil: Initialisierung
-
-			//Anzahl der Reaktionen M
-			int M = ruleId2reactions.size();  //std::cout << "ruleID2reactions_groesse_ausgabe : " << M << endl;
-			
-			//number of reactants N = targetSmiles
-			int N = targetSmiles.size();
-			    
-			//reaction counter n --> probably not necessary because of the for-loop
-			int n = 0;
-
-			//maximale Anzahl der Reaktionen --> also probably not necessary because of the for-loop
-			int n_max = 100;
-
-			//Zeit t
-			double t = 0.0;
-			
-			//!!!Kalkulation der Energiedifferenz fuer die reaction rates c_mu und die dazugehoerigen Instanzen -> deltaE = sum_energy(producedSmiles) - sum_energy(targetSmiles)
-			/*double energy_producedSmiles = energie_calculation(producedSmiles);
-			double energy_targetSmiles = energie_calculation(targetSmiles);
-			double deltaE = energy_producedSmiles - energy_targetSmiles;*/
-			//double deltaE = energie_calculation(producedSmiles) - energie_calculation(targetSmiles);
-			double deltaE = energy_producedSmiles - energy_targetSmiles;
-			    std::cout<<"Delta E :::::::" << deltaE <<std::endl;
-			
-		       
-			//vector c_mu -> reaction rates (of size M)
-			vector<double> c_mu(M);
-
-			//c_mu mit den Energiewerten fuellen
-			  for(int i = 0 ; i<M; ++i)
-			    {
-			      c_mu.at(i) = deltaE;
-			    }
-			  
-		       /* !!!!!nach oben verschoben vor ruleHist!!!!molecular population level -> die Anzahl der unterschiedlichen molekuelpopulationen anschauen
-			  std::map<string,int> molecular_population_level;
-
-			  for (SMILES_container::const_iterator ts=targetSmiles.begin(); ts!= targetSmiles.end(); ++ts)
-			    {
-			      std::string generic_smile = extract_generic_smile(ts->first);
-
-			      if(molecular_population_level.find(generic_smile) == molecular_population_level.end())
-				{
-				  molecular_population_level[generic_smile] = 1;
-				}
-				else
-				{
-				    molecular_population_level[generic_smile] ++;
-				}
-
-			    }
-
-			  //just to check -> temporary
-			   cout << "!!!!!!!!!!!!!!!Anzahl der Smiles:" << endl;
-  
-			   for(map<string,int>::iterator im = molecular_population_level.begin();im != molecular_population_level.end();++im)
-			     {
-			       cout << "Smile: " << im -> first << " how often: " << im -> second << endl;
-			     }
-       */
-
-		       //2. Teil: Beginn des Algorithmus
-
-			   //Generieren der Zufallszahlen
-			   double r0 = double(rand())/(RAND_MAX);
-			   double r1 = double(rand())/(RAND_MAX);
-			   double r2 = double(rand())/(RAND_MAX);
-			   
-			   //berechnung von h_my
-			   //wurde oben schon gemacht. --> kommt drauf an, wo man die while schleife setzt --> wenn man sie setzt
-			   
-			 //Berechnung der propensity a_my -> i = 1,....,Anzahl der Reaktionen für jede Reaktion
+			//h_my.push_back(h_my_multiplicator);
+							       
+ 			  //to fill c_my with the energy values
+			M = ruleId2reacdtions.size(); 
+                        c_my = calculate_c_my(M,deltaE);
+ 
+			 //Berechnung der propensity a_my -> i = 1,..,M
 			   std::vector<double> a_my;
+			   a_my = calculate_a_my(h_my,c_my);
 
-			     for(size_t a = 0; a < h_my.size();++a)
-			       {
-				 a_my.push_back(h_my(a)*c_my(a));
-			       }
-
-		       //Berechnung der Summe ueber a_my
-
-			   double a0 = 0.0;
-
-			   for (size_t i = 0; i < a.size();++j)
-			     {
-			       a0 = a0 + a.at(i);
-			     }
+		       //Berechnung der Summe der propensity  a_my
+			   double a0;
+			   a0 = calculate_a0(a_my);
 
 		      //Berechnen der Zeit, wann die naechste Reaktion stattfinden wird.
 
@@ -910,67 +923,26 @@ int main( int argc, char** argv ) {
 			  {
 			    if (rule_id.compare(pr->first) == 0) //(Regel die aus dem Gillespie ermittelt wurde))
 			      {
-				      cout << "ist gleich" << endl;
 				      //rausspeichern der einträge auf die pr gerade zeigt!!!!
 				      instance_index.push_back(pr);
 			      }
 			  }
 			 
+			int number_of_instances = instance_index.size();
 			/*
 			  !!!!!!!!!!!
 			  Berechnung des Boltzmannfaktors: exp(-deltaE/(kB * T))
 			  !!!!!!!!!!!
-                        */
-			    std::cout << "===========Start calculate Boltzmannfaktor" << std::endl;
-			    
+
+			  Berechnung welche der Instanzen verwendet wird
+                          //die gewahelte Instance wird pickedReaction zugewiesen.
+                            // die pickedReaction bekommt die Instanz zugewiesen, die in producedReactions vorhanden ist.
+                            // --> die Reaction Instanz, die genommen wird 
 			    //Berechnung der Energie der einzelnen Instanzen
-			    //da die Energie logischerweise die gleiche ist, wie fuer die genommen Regel kann hier mit der schon berechneten Energie deltaE weitergearbeitet werden --> deltaE
+			    //da die Energie logischerweise die gleiche ist, wie fuer die genommen Regel kann hier mit der schon berechneten Energie deltaE weitergearbeitet werden --> deltaE*/
 			    
-			    //3. kBT in kcal/mol at room temperature (298°K)
-			    double kBT;
-			    kBT = 0.5924;
-
-			    //4.Berechnung eines einzelnen Boltzmanfaktors BF
-			    double BF;
-			    BF =exp(deltaE/kBT);
-			    
-			    //Aufsummieren aller Boltzmannfaktoren (soviele wie es Instanzen gibt) zu Z; Z = Summe zur Normierung;
-			    double Z = 0.0;
-
-			    for (int z = 0; z < instance_index.size(); ++z)
-			      {
-				Z += BF;
-			      }
-			    
-			    //Berechnen der Wahrscheinlichkeit
-			    vector<double> p_BF;
-
-			    for(int k=0; k < instance_index.size();++k)
-			      {
-				p_BF.push_back(k*BF/Z);
-			      }
-
-			   //Berechnung welche Instanz genommen wird
-
-			    double sum1 = 0.0;
-			    int instance = 0;
-			  	
-			  	for(int i = 0; i < p.size(); i++)
-				{
-				  sum1 += p.at(i);
-				   if(sum1 > r1)
-				    {
-				      instance= i;
-			              break;
-				    }	
-				}	
-
-			    //die gewahelte Instance wird pickedReaction zugewiesen.
-			    // die pickedReaction bekommt die Instanz zugewiesen, die in producedReactions vorhanden ist.
-			    // --> die Reaction Instanz, die genommen wird!!!!
-			    //
 				MR_Reactions::Reaction_Container pickedReaction;
-				pickedReaction = instance_index.at(instance);
+				pickedReaction = instance_index.at(instance_calculation(deltaE, number_of_instances, r0));
 
 				
 				/*
@@ -1038,7 +1010,7 @@ int main( int argc, char** argv ) {
 				break;
 			}
 
-			// pick a random rule
+			/* pick a random rule
 			size_t pickedRule = getRandomNumber( ruleId2reactions.size() );
 			// get hist data of picked rule
 			RuleHist::const_iterator pickedRuleHist = ruleId2reactions.begin();
@@ -1085,7 +1057,7 @@ int main( int argc, char** argv ) {
 										    std::cout << "======Ende====Ausgabe=====" << std::endl;
 
 				
-				 //!!ende aenderung!!!
+				 //!!ende aenderung!!!*/
 
 			// print information for picked reaction
 			(*out)	<<"!!!!!  "<<(*pickedReaction) <<"\n"
@@ -1160,13 +1132,11 @@ int main( int argc, char** argv ) {
 			    double sum_energy_producedSmiles = energie_calculation(producedSmiles);
 			    std::cout <<"Summe producedSmiles" << sum_energy_producedSmiles << std::endl;
 			    
-			    double sum_energy_targetSmiles = energie_calculation(targetSmiles);
-										 std::cout <<"Summe targtSmiles" << sum_energy_targetSmiles << std::endl;	       
+			    //double sum_energy_targetSmiles = ener <<"Summe targtSmiles" << sum_energy_targetSmiles << std::endl;	       
 			    double deltaE1 = sum_energy_producedSmiles - sum_energy_targetSmiles;
 			    std::cout << "=======Ausgabe deltaE========"<<std::endl;
 									  std::cout << deltaE1 << std::endl;
-									  double kb = 8.61733*(pow(10,-5));
-									  double T = 273.15;
+									  double kb = 0.592
 									  double Bf = exp(-deltaE1/kb*T);
 			    std::cout << "=======Ausgabe Boltzmannfaktor=======" << std::endl; 									  
 			    std::cout << Bf << std::endl;
