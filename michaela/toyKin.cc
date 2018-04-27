@@ -61,7 +61,6 @@ getRandomNumber( const size_t maxExluding )
 //Aenderung Gillespie Beginn
 
 //RandomNumerGenerator
-
 size_t random_number01()
 {
 	return (double(rand())/(RAND_MAX));
@@ -86,7 +85,7 @@ std::vector<double> calculate_a_my(const std::vector<double>& h_my, const std::v
  std::vector<double> _a_my;
  for(size_t a = 0; a < h_my.size();++a)
   {
-   a_my.push_back(h_my.at(a)*c_my.at(a));
+   _a_my.push_back(h_my.at(a)*c_my.at(a));
   }
  return _a_my;
 }
@@ -103,38 +102,59 @@ double calculate_a0(const std::vector<double>& a_my)
  return _a0;
 }
 
+//calculate boltzmann
+//zur berechnung des boltzmann-faktors fuer die einzelnen Eintraege des Vektors (=Instanzen)
+
+std::vector<double> calculate_boltzmann(double deltaE, int number_of_instances)
+{
+ //calculate deltaE for every instance 
+ std::vector<double> _v1;
+
+ for(int i = 0; i < number_of_instances; ++i)
+ {
+  _v1.push_back(deltaE); //wird in Zukunft eine Funktion werden, damit sich jede Instanz die Energie selbst berechnen kann; 
+ }
+
+ //calculate beta = 1/kBT
+ double kBT = 0.592;
+ double beta = 1/kBT;
+
+ //calculate the boltzmann-faktor for every instance
+ std::vector<double> _v2;
+
+ for(int j = 0; j < _v1.size();++j)
+ {
+  _v2.push_back(exp(-beta*_v1.at(j)));
+ }
+
+ //sum up to Z(=Normierungsfaktor)
+ double Z = 0.0;
+ for (int z = 0 ; z < _v2.size();++z)
+ {
+  Z += _v2.at(i);
+ }
+
+ //normieren der einzelnen boltzmannfaktoren
+  for(int bf = 0; bf < _v2.size();++bf)
+ {
+  _v2.at(i) = _v2.at(i)/Z;
+ }
+ return _v2;
+}
+
 //Calculate instance
 
 int calculate_instance(double deltaE, int number_of_instances, double random_number)
 {
-//kBT in kcal/mol at room temperature (298°K)
-  double kBT;
-  kBT = 0.5924;
-
-//Berechnung eines einzelnen Boltzmanfaktors BF
-  double BF;
-  BF =exp(deltaE/kBT);
-
-//Aufsummieren aller Boltzmannfaktoren (soviele wie es Instanzen gibt) zu Z; Z = Summe zur Normierung;
-  double Z = 0.0;
-  for (int z = 0; z < number_of_instances; ++z)
-   {
-    Z += BF;
-   }
-
-//Berechnen der Wahrscheinlichkeit
-  vector<double> p_BF;
-  for(int k=0; k < number_of_instances;++k)
-   {
-    p_BF.push_back(k*BF/Z);
-   }
-
+//Berechnung des Boltzmannfaktors fuer die Einzelnen Instanzen
+//zur zeit noch mit einem einheitlichen deltaE --> das wird aber noch geändert, so dass jeder Eintrag im Vektor sich sein eigenes deltaE berechnet
+	std::vector<double> instances = calculate_boltzmann(deltaE, number_of_instances);
 //Berechnung welche Instanz genommen wird
   double sum = 0.0;
   int instance = 0;
-  for(int i = 0; i < p_BF.size(); i++)
+  for(int i = 0; i < instances.size(); i++)
   {
-   sum += p_BF.at(i);
+   sum += instances.at(i);
     if(sum > random_number)
      {
       instance= i;
