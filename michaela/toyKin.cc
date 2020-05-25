@@ -60,187 +60,298 @@ getRandomNumber( const size_t maxExluding )
 
 //Aenderung Gillespie Beginn
 
-//Calculate the energy of the metabolites and the products of the different reactions 
-double energy(std::string metabolite, std::string product)
-{
-	double deltaE = 0.0;
-	double energy_educt = 0.0;
-	double energy_product = 0.0;
-
-	energy_educt = 0.3;//energie_calculation(metabolite);
-	energy_product = 0.4;// energie_calculation(product);
-
-	deltaE = energy_product - energy_educt;
-
-	double kbT = 0.592;
-	double beta = 1/kbT;
-
-	//Berechnung des Boltzmannfaktors exp(-beta*deltaE);
-	
-	double BF = 0.0;
-	BF = exp(-beta*deltaE);
-
-	return BF; 
-}
 //RandomNumberGenerator
 double random_number01()
 {
 	return (double(rand())/(RAND_MAX));
 }
 
-/*calculate c_my
- 
-std::vector<double> calculate_c_my(int M, double deltaE)
-{
- std::vector<double> _c_my(M);
- for(int c = 0 ; c<M; ++c)
- {
-  _c_my =  deltaE;
- }
- return _c_my;
-}
 
-//caluculate propensity a_my
+//create generic smiles
+//gives back the generic smile for calculating the number of moleculs 
 
-std::vector<double> calculate_a_my(const std::vector<double>& h_my, const std::vector<double>& c_my)
-{
- std::vector<double> _a_my;
- for(size_t a = 0; a < h_my.size();++a)
-  {
-   _a_my.push_back(h_my.at(a)*c_my.at(a));
-  }
- return _a_my;
-}
-
-//Calculate a0
-
-double calculate_a0(const std::vector<double>& a_my)
-{
- double _a0= 0.0;
- for(size_t i = 0; i < a.size();++j)
-  {
-  _a0 += a_my.at(i);
-  }
- return _a0;
-}
-
-/calculate boltzmann
-//zur berechnung des boltzmann-faktors fuer die einzelnen Eintraege des Vektors (=Instanzen)
-
-std::vector<double> calculate_boltzmann(double deltaE, int number_of_instances)
-{
- //calculate deltaE for every instance 
- std::vector<double> _v1;
-
- for(int i = 0; i < number_of_instances; ++i)
- {
-  _v1.push_back(deltaE); //wird in Zukunft eine Funktion werden, damit sich jede Instanz die Energie selbst berechnen kann; 
- }
-
- //calculate beta = 1/kBT
- double kBT = 0.592;
- double beta = 1/kBT;
-
- //calculate the boltzmann-faktor for every instance
- std::vector<double> _v2;
-
- for(int j = 0; j < _v1.size();++j)
- {
-  _v2.push_back(exp(-beta*_v1.at(j)));
- }
-
- //sum up to Z(=Normierungsfaktor)
- double Z = 0.0;
- for (int z = 0 ; z < _v2.size();++z)
- {
-  Z += _v2.at(i);
- }
-
- //normieren der einzelnen boltzmannfaktoren
-  for(int bf = 0; bf < _v2.size();++bf)
- {
-  _v2.at(i) = _v2.at(i)/Z;
- }
- return _v2;
-}
-
-//Calculate instance
-
-int calculate_instance(double deltaE, int number_of_instances, double random_number)
-{
-//Berechnung des Boltzmannfaktors fuer die Einzelnen Instanzen
-//zur zeit noch mit einem einheitlichen deltaE --> das wird aber noch geändert, so dass jeder Eintrag im Vektor sich sein eigenes deltaE berechnet
-	std::vector<double> instances = calculate_boltzmann(deltaE, number_of_instances);
-//Berechnung welche Instanz genommen wird
-  double sum = 0.0;
-  int instance = 0;
-  for(int i = 0; i < instances.size(); i++)
-  {
-   sum += instances.at(i);
-    if(sum > random_number)
-     {
-      instance= i;
-      break;
-     }
-  }
-return instance;
-}	
-//!!!Funktionsdefinition fuer die erstellung der allgemeinen smiles
-//gibt den allgemein smile zurueck ohne labelung um die anzahl der molecule population zu definieren zurueck
-
-std::string extract_generic_smile(string metabolite)
-{
+std::string extract_generic_smile(string molecule){
   bool in_brackets = false;
   bool after_colon = false;
   string generic_smile;
 
-  for (int i = 0; i < metabolite.size(); ++i)
-    {
-      char c = metabolite[i];
+  for (int i = 0; i < molecule.size(); ++i){
+      char c = molecule[i];
 
-      if(c =='[')
-	{
+      if(c =='['){
 	  in_brackets = true;
 	  continue;
 	}
-      if(c ==']')
-	{
+      if(c ==']'){
 	  in_brackets = false;
 	  after_colon = false;
 	  continue;
 	}
-      if(in_brackets && c == ':')
-	{
+      if(in_brackets && c == ':'){
 	  after_colon = true;
 	  continue;
 	}
-      if (after_colon)
-	{
+      if (after_colon){
 	  continue;
 	}
-
-      /*if(c =='#')
-	{
+      /*if(c =='#'){
 	  in_brackets = false;
 	  after_colon = false;
 	  continue;
-	  }
-
+	  }*/
       generic_smile.push_back(c);
     }
  return generic_smile;
 }
 
-double partial_sum(vector<double>& a_my, double index)
-{
-	double sum = 0.0;
-	for (int i = 0; i <= index; ++i)
-	{
-	 sum += a_my.at(i);
-	}
-	return sum;
+//calculate the energy difference of products and metabolites including boltzmann: exp(-deltaE/kBT) 
+//stand 03.05. --> only calculate the difference because boltzmann does not work correct at the moment!
+double energy_per_instance(double sum_products, double sum_metabolites) {
+ //boltzmannconstant
+ double kB;
+ //absolut temperature
+ double T;
+ //boltzmannfactor
+ double kBT;
+//calculting boltzmann 
+double boltzmann=0.0; 
+//storing the energy_difference
+ double dE = 0.0;
+
+ dE = sum_products - sum_metabolites; 
+ //for later, when boltzmann is working
+ //boltzmann = exp((-dE)/kBT
+ //
+return dE; 
 }
-//Änderung fuer Gillespie ENDE*/
+
+//version 03.05.2020 Beginn
+//calculate the energy of metabolites and products and return a multimap 
+multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<string> products){
+ multimap<double,vector<string > > rule_;
+ double sum_metabolites = 0.0;
+ double sum_products = 0.0;
+ double dE = 0.0;
+
+ //calculate the energy of the metabolites
+ for(int i= 0; i<metabolites.size();++i){
+	 //tno
+	 cout <<"--------temporaere ausgabe ther metabolites ------------" << metabolites.at(i) << endl; 
+  sum_metabolites += energie_calculation(metabolites.at(i));
+ }
+ //calculate the energy of the products
+ for(int j= 0; j<products.size();++j){
+  sum_products += energie_calculation(products.at(j));
+ }
+ //calculate the energy difference and do it statistically correct 
+ dE = energy_per_instance(sum_products,sum_metabolites);
+
+ //put all together in one multimap
+ rule_.insert(make_pair(dE,metabolites));
+
+ return rule_;
+}
+
+//add all energy values per instance for one rule and norm it 
+
+map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > > ruleID){
+ map<string,double> ruleID_total;
+ //add all values of the multimap ruleID
+ for(multimap<string,multimap<double,vector<string> > >::iterator iter=ruleID.begin();iter!=ruleID.end();++iter){
+  if(ruleID_total.find(iter->first)==ruleID_total.end()){
+   for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
+    ruleID_total[iter->first] = (*ii).first;
+   }
+  }
+  else{
+   for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
+    ruleID_total[iter->first]+=(*ii).first;
+   }
+  }
+ }
+cout << "in unterfunktion---------------------rule_ID_total - add all values of the multimap ruleID" << endl;
+for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i)
+{
+  cout << i->first <<":" << i->second << endl; 
+}
+ //add all values together to Z_total
+ double Z_total = 0.0;
+ for(map<string,double>::iterator it=ruleID_total.begin();it!=ruleID_total.end();++it){
+  Z_total += it->second;
+ }
+//temporary
+cout <<"Z_total" << Z_total<< endl;
+
+ //divide all entries of ruleID_total by Z_total to get percentage per rule between 0 and 1 (all together it has to be 1)
+ //store percentage in a map<string,double>
+ map<string,double> ruleID_norm;
+
+ for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i){
+  if(ruleID_norm.find(i->first)==ruleID_norm.end()){
+   ruleID_norm[i->first] = (i->second)/Z_total;
+  }
+  /*else{
+   ruleID_norm[i->first] +=(i->second)/Z_total;
+  }*/
+ }
+ return ruleID_norm;
+}
+
+//calculate the reactionrate per ruleID
+double reaction_rates_calc(vector<string>targetSmile,map<string,int> mpl_ts){
+ //for store the generic_smiles
+  map<string,double> _generic_smile;
+  //calculate how often a metabolite exist per reactioninstance per rule
+  for(int i= 0; i < targetSmile.size();++i){
+   _generic_smile[extract_generic_smile(targetSmile.at(i))]+=1;
+  }
+
+  //calculate the sole reactionrates per rule 
+  double v1 = 1.0;
+  double v2 = 1.0;
+  double v3 = 1.0;
+  double value = 0.0; 
+
+ for(map<string,double>::iterator i = _generic_smile.begin();i!=_generic_smile.end();++i){
+  if(i->second == 1){
+   v1= v1*mpl_ts[i->first];
+  }
+  if(i->second ==2){
+   v2=(mpl_ts[i->first]*(mpl_ts[i->first]-1))/2;
+  }
+  if(i->second==3){
+   v3=(mpl_ts[i->first]*(mpl_ts[i->first]-1)*(mpl_ts[i->first]-2))/6; 
+  } 
+ }
+ value = v1*v2*v3;
+ return value;
+}
+
+//calculate the rule rates per rule
+map<string,double> rule_rates_calc(map<string,double> _ruleID_percentage,map<string,double> _ruleID_reactionRates){
+  //store the rule rates with rule_id
+  map<string,double> a_my;
+
+  for(map<string,double>::iterator i = _ruleID_percentage.begin();i!=_ruleID_percentage.end();++i){
+    map<string,double>::iterator j = _ruleID_reactionRates.find(i->first);
+    if(j!=_ruleID_reactionRates.end()){
+      a_my[i->first] = i->second * j->second; 
+    }
+  }
+return a_my;
+}
+
+//calculate the total rule rate
+double rule_rate_total_calc(map<string,double> _rule_rates){
+  double a0 = 0.0;
+
+  for(map<string,double>::iterator iter = _rule_rates.begin();iter!=_rule_rates.end();++iter){
+   a0 += iter->second;
+  }
+  return a0;
+}
+
+//calculate the ruleID according to reactionrate and energy -- gillespie part
+string calculate_ruleID(map<string,double> _rule_rates, double _rule_rate_total, double _r2){
+	double sum_a0 = 0.0;
+	string taken_ruleID;
+  
+ for(map<string,double>::iterator iter= _rule_rates.begin();iter!=_rule_rates.end();++iter){
+	 sum_a0+=iter->second;
+	 if(sum_a0 > _rule_rate_total*_r2){
+	  taken_ruleID = iter->first;
+	  cout << "--------------ruleid-taken-----------"<< iter->first << endl;
+	 break; 
+	 }
+ }
+ return taken_ruleID;
+}
+
+//calculate the reaction which will be taken for the rule_id
+int reaction_taken(vector<double> _instance_energy)
+{
+ //sum all values up
+ srand(time(NULL));
+ double r2 = random_number01();
+ double r3 = random_number01();
+  
+ double sum_instance = 0.0;
+
+ for(int i = 0; i<_instance_energy.size();++i){
+	 sum_instance += _instance_energy.at(i);
+ }
+cout <<"summe instance : " << sum_instance << endl; 
+ //norm the entries
+ vector<double> norm_instance_energy;
+ for(int j= 0; j<_instance_energy.size();++j){
+	 norm_instance_energy.push_back((_instance_energy.at(j))/sum_instance);
+ }
+ //get to know the reaction instance
+ double sum_ = 0.0;
+ int r = 0;
+
+ for(int i = 0; i <norm_instance_energy.size();++i){
+	 sum_ += norm_instance_energy.at(i);
+	 if(sum_ > r3){
+	  r = i;
+	  break;
+	 }
+ }
+ cout << "Diese instanz wurde genommen" << r  << endl; 
+ return r; 
+}
+
+//calculate the ruleID and the metabolites according to the ruleID
+map<string,vector<string> > calc_ruleID_met(multimap<string,multimap<double,vector<string> > > _ruleID, string _ruleID_taken){
+	vector<double> instance_energy;
+	vector<string> vec_tmp;
+	int rp = 0; 
+
+ //iterators for equal range
+ typedef multimap<string,multimap<double,vector<string> > >::iterator ip;
+ pair<ip,ip> result = _ruleID.equal_range(_ruleID_taken);
+
+ //iterator outermap
+ multimap<string,multimap<double,vector<string> > >::iterator om;
+ //iterator innermap
+ multimap<double,vector<string> >::iterator im;
+//iteraotr vector
+vector<string>::iterator vecin;
+
+//store energyvaluesi
+for(om = result.first;om!=result.second;++om){
+ for(im = (*om).second.begin();im!=(*om).second.end();++im){
+  instance_energy.push_back((*im).first);
+ }
+}
+
+ //give the vector of energies to anoter function for calculating the reaction instance
+ rp = reaction_taken(instance_energy);
+
+ //pick the metabolites to the ruleID_taken and store all in a map
+ 
+ //laufvariable
+ int l = 0; 
+
+ for(om = result.first;om!=result.second;++om){
+	 cout << om->first << endl;
+	 if(rp == l ){
+	   for(im = (*om).second.begin();im!=(*om).second.end();++im){
+	     for(vecin = (*im).second.begin();vecin!=(*im).second.end();++vecin){
+		      vec_tmp.push_back(*vecin);
+		      cout << *vecin << endl;  
+	      }
+	     break;
+	    }
+	 }
+	   ++l;
+ }
+map<string,vector<string> > _ruleID_i;
+_ruleID_i[_ruleID_taken]= vec_tmp;
+
+return _ruleID_i; 
+}
+//Änderung fuer Gillespie ENDE
 
 ////////////////////////////////////////////////////////////////////////////////
 #if HAVE_UNORDERED_MAP > 0
@@ -758,76 +869,15 @@ int main( int argc, char** argv ) {
 		// perform rule application iterations
 		//////////////////////////////////////////////////////////////
 
-		//Changes for Gillespie
-		//
-		//Energy_calculation produceSmiles/targetSmiles
-		//Kalkulation der Energiedifferenz deltaE fuer die reaction rates c_mu und die dazugehoerigen Instanzen
-
-		double deltaE = 0.0;
-		double energy_productSmiles = 0.0;
-		double energy_eductSmiles = 0.0;
-		double cool = 0.0;
-		double cool_2 = 0.0;
-		//energy_producedSmiles = energie_calculation(producedSmiles);
-                //energy_targetSmiles =  energie_calculation(targetSmiles);
-
-		//deltaE = energy_producedSmiles - energy_targetSmiles; 
-		/*Calculate the molecular_population_level in targetSmile and producedSmile for the connection between h_my and the pickedRule
-		//merge them together in mpl_ts to get one map with initial population numbers
+		//Changes for Gillespie 
+		//Calculate the molecular_population_level in targetSmile
 		
 		std::map<std::string,int> mpl_ts;
 		std::map<std::string,int> mpl_ps;
 		
-                //Anzahl der molekuelpopulationen eruieren (in targetSmile)
-                  for(SMILES_container::const_iterator ts=targetSmiles.begin(); ts!= targetSmiles.end(); ++ts)
-                  {
-                    std::string generic_smile = extract_generic_smile(ts->first);
-                     if(mpl_ts.find(generic_smile) == mpl_ts.end())
-                      {
-                        mpl_ts[generic_smile] = 1;
-                      }
-                     else
-                      {
-                        mpl_ts[generic_smile]++;
-                      }
-                  }
-
-		//Anzahl der molekuelpopulationen eruieren (in producedSmile)
-                  for(SMILES_container::const_iterator ps=producedSmiles.begin(); ps!= producedSmiles.end(); ++ps)
-                  {
-                    std::string generic_smile = extract_generic_smile(ps->first);
-                     if(mpl_ps.find(generic_smile) == mpl_ps.end())
-                      {
-                        mpl_ps[generic_smile] = 1;
-                      }
-                     else
-                      {
-                        mpl_ps[generic_smile]++;
-                      }
-                  }
-
-		  //merge them together
-		  mpl_ts.insert(mpl_ps.begin(),mpl_ps.end());
-		  mpl_ps.clear();
-
-		 //initialize the time t
+               	 //initialize the time t
                    double t = 0.0;
-
-                //Anzahl der Reaktionen M -> noch zum ermitteln
-                 int M;
-
-               //number of reactants N = targetSmiles
-               int N = mpl_ts.size();
-
-	       //vector c_my -> reaction rates (of size M)
-               //to fill c_my with the energy values
-                        vector<double> c_my;
-                       
-		//metabolites_in_producedReactions
-		std::map<string,int> metabolites_in_Reactions;
-
-
-		//!!!Ende*/
+		//!!!Ende
 		
 		  // set up graph matcher
 		sgm::SGM_vf2 sgm;
@@ -879,243 +929,182 @@ int main( int argc, char** argv ) {
 			// pick a reaction TODO change accordingly!!
 			//Step 1
 
-		       //Generieren der Zufallszahlen
+		cout << "-------------Ausgabe TargetSmiles--------------"<<endl ; 
+
+			for(SMILES_container::const_iterator tts = targetSmiles.begin();tts!=targetSmiles.end();tts++){
+				cout << tts->first <<   endl; 
+			}
+			//calculate the molcule population via TargetSmiles : how many molecules are present at them moment 
+			for (SMILES_container::const_iterator its = targetSmiles.begin();its != targetSmiles.end();its++){
+				string generic_smile = extract_generic_smile(its->first);
+
+				if (mpl_ts.find(generic_smile) == mpl_ts.end()){
+					mpl_ts[generic_smile] = 1;
+				}
+				else{
+					mpl_ts[generic_smile]++;
+				}
+			}
+
+			cout <<"----------mpl_ts------------" << endl;
+
+			for (std::map<std::string,int>::const_iterator itera = mpl_ts.begin();itera != mpl_ts.end();itera++){
+				cout << itera -> first << " : " << itera -> second << endl;	
+			}
+
+		       //generate random numbers
                            double r0 = random_number01();
 			   cout << " r0 : " << r0 << endl; 
                            double r1 = random_number01();
-			   cout << " r1 : " << r1 << endl; 
-                           double r2 = random_number01();
-			   cout << "r2 : " << r2 << endl; 
-	
-			//fuer die nummerierung der Regeln
-			int rule_index = 0;
-			std::map<string,int> rule_indexs;
-			vector<string> rule_names_ids;
-			string rule_id;
-
-			//um Z fuer die Rule  zu berechnen
-
-			std::map<string,double> normRules_Z;
-			// Berechnung von h_my
-			vector<double>h_my;
-		
+			   cout << " r1 : " << r1 << endl;  
+			
+			//NEUE VERSION VOM 03.05.2020 
+			vector<string> metabolites_all;	
+			vector<string> products_all;
+			//multimap for store the deltaE and metabolites(-->metabolites are unique)
+			typedef multimap<double,vector<string> > dE_met;
+			dE_met Emet;
+		        multimap<string,dE_met> ruleID;	//store all ruleID-energyvalue-metabolites
+			map<string,double> ruleID_percentage;//stores the percentage per ruleID (c_my)
+			map<string,double> ruleID_reactionRates;//molecule combination (h_my)
+			map<string,double> rule_rates; //a_my
+			double rule_rate_total=0.0; //a0;
+			string rule_taken;
+			double dt = 0.0; //random waiting time
+			//NEUE VERSION VOM 03.05.2020 ENDE
 			// get number of reaction instances for each rule
 			typedef std::map< std::string, size_t > RuleHist;
 			RuleHist ruleId2reactions;
 			for (MR_Reactions::Reaction_Container::const_iterator r=producedReactions.begin(); r != producedReactions.end(); r++) {
-				// check if not seen so far
-			  //for (Reaction::Metabolite_Container::const_iterator me = r->metabolites.begin();me != r -> metabolites.end();++me)
-			  //{
-			    //for (Reaction::Metabolite_Container::const_iterator ipr = r->products.begin();ipr != r -> products.end();++ipr)
-			    //{
+				//ausgabe von producedreaction -- selbst geschrieben
+				cout<< "---------------ausgabe r------------"<< endl; 
+                                 cout << (*r) << endl;
+
+				 cout <<"-------------ausgabe r ende ------------" << endl;  
+				// check if not seen so far  
 				  if (ruleId2reactions.find(r->rule_id) == ruleId2reactions.end()) {
 					ruleId2reactions[r->rule_id] = 1;
-					//nummerierung der Regeln!!!!!!!!!!!!!!!!!!1
-					rule_indexs[r->rule_id] = rule_index;
-					++rule_index;
-					rule_names_ids.push_back(r->rule_id);
+					//nummerierung der Regeln!!!!!!!!!!!!!!!!!!
+				        cout <<"-----------ruleId2reactions-----------" << endl;
+				       for (map<string,size_t>::iterator rulerator= ruleId2reactions.begin();rulerator != ruleId2reactions.end();++rulerator)
+				            {
+						    cout << rulerator -> first << " : " << rulerator -> second << endl; 
+				            }		    
+				       cout << "----------ruleId2reactions-Ende----------" << endl;
+					//metabolites
+					for(Reaction::Metabolite_Container::const_iterator me1 = r-> metabolites.begin(); me1 != r->metabolites.end();++me1){
+						//all metabolites which occur in one reaction instance to store for adding later on
+						metabolites_all.push_back(*me1);
+					}		
+                                        //products
+					for(Reaction::Metabolite_Container::const_iterator pr1 = r->products.begin(); pr1 != r->products.end(); ++pr1){
+						//all products which occur in one reaction instance to store for adding later on 
+						products_all.push_back(*pr1); 
+					} 
+				
+				       //fill the innermap of ruleID with energydifference and metabolites(metabolites because of uniqueness)
+                                         Emet = rule_dE(metabolites_all,products_all);
+				       
+				      //fill the outermap ruleID
+				         ruleID.insert(make_pair(r->rule_id,Emet));
 
-					//speichern der eintraege um Z zu berechnen
-					//for (Reaction::Metabolite_Container::const_iterator me = r->metabolites.begin();me != r -> metabolites.end();++me)
-				  
-				    
-					//cool = energie_calculation(*me);
-					//		normRules_educt[r->rule_id] = energie_calculation(*me);//cool;
-					//normRules_product[r->rule_id] = energie_calculation(*ipr);
-					
+				      //calculate the reactionrates according to the molecules occur targetsmiles
+				        ruleID_reactionRates[r->rule_id]=reaction_rates_calc(metabolites_all,mpl_ts);
+					//just for representation --> temporary
+					cout <<"-----------------------reation_rate_per rule ---------------------" << endl; 
+					for(map<string,double>::iterator i = ruleID_reactionRates.begin();i!=ruleID_reactionRates.end();++i){
+						cout << i->first <<": " << i->second << endl; 
+				        }		
+			                metabolites_all.clear();	
+				        products_all.clear(); 	
 					//Ende
-
-				 } else {
+				  }
+				  
+				  else {
 					// increase counter
 					ruleId2reactions[r->rule_id]++;
 
-					//increase den normvalue
-					
-					//normRules_educt[r->rule_id] += energie_calculation(*me);
-					//		normRules_product[r->rule_id] += energie_calculation(*ipr);
+					//Version4.5.2020
+					//metabolites 
+					for(Reaction::Metabolite_Container::const_iterator me2 = r-> metabolites.begin();me2!=r->metabolites.end();++me2){
+						//all metabolites which occur in one reaction instance to store for adding later on
+                                                metabolites_all.push_back(*me2); 
 					}
-				  //}
-			  //}
+                                       
+                                  	//products
+				        for(Reaction::Metabolite_Container::const_iterator pr2 = r->products.begin();pr2 != r->products.end();++pr2){
+						 //all products which occur in one reaction instance to store for adding later on
+                                                products_all.push_back(*pr2); 
+					}
 
-				//calculation der Energie der metaboliten und products
-				//berechnung von delta E mit hilfe der funktion energy();
-				//uebergeben werden die metabolites und die products
-				 for (Reaction::Metabolite_Container::const_iterator me = r->metabolites.begin();me != r -> metabolites.end();++me)
-				  { 
-				    for(Reaction::Metabolite_Container::const_iterator ipr = r->products.begin();ipr != r->products.end();++ipr)
-				      { 
-					if(ruleId2reactions.find(r->rule_id)== ruleId2reactions.end())
-					  {
-					    normRules_Z[r->rule_id] = energy(*me,*ipr);
-					  }
-					else
-					  {
-					    normRules_Z[r->rule_id] += energy(*me, *ipr);
-					  }
-				  }
-				  }
-			/*	double h_my_multiplicator = 1.0;
-				//um die molecular_population_levels der jeweiligen reaction zuzuordnen
-				for (Reaction::Metabolite_Container::const_iterator me = r->metabolites.begin();me != r -> metabolites.end();++me)
-				  {
-					  string generic_smile = extract_generic_smile(*me);
-					  h_my_multiplicator = h_my_multiplicator*mpl_ts[generic_smile];
-					  
-				  }
-				//versuch 1: in der Schleife:
-				h_my.at(rule_indexs[r->rule_id]) = h_my_multiplicator;*/ 
+					//fill the innermap of ruleID with energydifference and metabolites(metabolites because of uniqueness)
+                                         Emet = rule_dE(metabolites_all,products_all);
+
+                                      //fill the outermap ruleID
+                                         ruleID.insert(make_pair(r->rule_id,Emet));
+
+					metabolites_all.clear();
+					products_all.clear();
+					}				 
+			}//for-loop end
+			//latest version
+			//
+			cout <<"----------------------------ruleID-ENERGYVALUE-METABOLITES-------------"<<endl; 
+		        for(multimap<string,dE_met>::iterator irule=ruleID.begin();irule!=ruleID.end();++irule){
+                                          cout << irule->first << ":";
+                                           for(multimap<double,vector<string> >::iterator idE=(*irule).second.begin();idE!=(*irule).second.end();++idE){
+                                            cout <<(*idE).first << ":";
+                                            for(vector<string>::iterator iv=(*idE).second.begin();iv!=(*idE).second.end();++iv){
+                                             cout << (*iv) << endl;
+                                            }
+                                           }
+                                        }
+
+	               //contains the ruleID and the percentage
+		        ruleID_percentage = ruleID_calc(ruleID);
+
+			//just for output - temporary
+			cout << "-------------ruleID_percentage--------------";
+			for (map<string,double>::iterator i= ruleID_percentage.begin();i!=ruleID_percentage.end();++i){
+			 cout << i->first <<":" << i->second<< endl; 
 			}
-//berechnung von Z der rules und waehlen der rule			 	
-for (std::map<std::string, double>::const_iterator eo = normRules_Z.begin(); eo != normRules_Z.end(); ++eo)
-                                   {
-                                     cout << "-------------NORMRULES_DELTAE-------------" << eo -> first << " "  << eo -> second << endl;
-                                   }
-	double Z_tot = 0.0;	
-for (std::map<std::string, double>::const_iterator zo = normRules_Z.begin(); zo != normRules_Z.end(); ++zo)
-{
-	Z_tot += zo->second; 	
+//calculate the rule_rates for each rule
+rule_rates = rule_rates_calc(ruleID_percentage,ruleID_reactionRates);
+//just for output - temporary
+cout << "----------------rule_rate----------------"<< endl; 
+for(map<string,double>::iterator i=rule_rates.begin();i!=rule_rates.end();++i){
+	cout <<i->first << ": " << i->second << endl;
 }
 
-for (std::map<std::string, double>::const_iterator z = normRules_Z.begin(); z != normRules_Z.end(); ++z)
+//calculate the total rule_rate
+rule_rate_total = rule_rate_total_calc(rule_rates);
+cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
+
+//calculate dt (=waiting time=a0) 
+dt = (-log(r0))/rule_rate_total;
+//calculate the ruleID
+rule_taken = calculate_ruleID(rule_rates,rule_rate_total,r1); 
+//ausgabe der genommenen ruleID - just temporary
+cout <<"-------------------ruleID which is taken---------------" << rule_taken << endl;
+
+//calculate the reaction_instance of the rule ID in an extern function- store ruleID and belonging metabolites!
+map<string,vector<string> > ruleID_metabolites;
+ruleID_metabolites = calc_ruleID_met(ruleID,rule_taken);
+
+//temporary output of map
+cout << "ruleID and belonging metabolites of the instance---------------------------" << endl; 
+for(map<string,vector<string> >::iterator i = ruleID_metabolites.begin();i!=ruleID_metabolites.end();++i)
 {
-	normRules_Z[z->first] = (z->second)/Z_tot;
+	cout << i->first <<": " <<  endl;
+  for(vector<string>::iterator j = (*i).second.begin();j!=(*i).second.end();++j)
+  {
+    cout << (*j) << endl; 
+  }
 }
+cout <<"RUleID and Metabolites END ---------------------" << endl; 
 
-
-cout << " ---------------------------- " << endl; 
-for (std::map<std::string, double>::const_iterator ausgabe = normRules_Z.begin(); ausgabe != normRules_Z.end(); ++ausgabe)
-{
-	cout << ausgabe -> first << " " << ausgabe -> second << endl; 
-}
-cout << " -------------- Z_tot = --------------" << Z_tot << endl; 
-
-//berechnung welche regel genommen wird
-
-double sum_rule = 0.0;
-
-for (std::map<std::string, double>::const_iterator re = normRules_Z.begin(); re != normRules_Z.end(); ++re)
-{
-	sum_rule = sum_rule + re->second;
-	cout << "sum_rule " << sum_rule << endl ; 
-	cout << " r0: " << r0 << endl; 
-	if(sum_rule > r0)
-	{
-		rule_id = re->first;
-	       break;	
-	}
-}
-
-cout << "-------------------------------RULE_ID which is taken ------------------------" << endl;
-cout << rule_id << endl; 
-
-
-			//2. versuch: ohne connection zu rule_id --> dazu muss aber hy_multiplicator ausserhalb der schleife sein. --> tendiere eher zu version 1 anstatt version 2 
-			//h_my.push_back(h_my_multiplicator);
-							       
- 			  /*to fill c_my with the energy values
-			M = ruleId2reacdtions.size(); 
-                        c_my = calculate_c_my(M,deltaE);
- 
-			 //Berechnung der propensity a_my -> i = 1,..,M
-			   std::vector<double> a_my;
-			   a_my = calculate_a_my(h_my,c_my);
-
-		       //Berechnung der Summe der propensity  a_my
-			   double a0;
-			   a0 = calculate_a0(a_my);
-
-		      //Berechnen der Zeit, wann die naechste Reaktion stattfinden wird.
-
-			   doube tau = 0.0;
-			   tau = (1/a0)*log(1/r0);
-			   
-		     //Berechnen welche Rule genommen/passieren wird (welche Reaktion wird genommen)
-
-			   for (int j=0; j<M;j++)
-			     {
-			       if(partial_sum(a_my,j-1) < (r2*a0) && (r2*a0) <= partial_sum(a_my,j)
-				 {
-				   rule = j;
-				   break;
-				 }
-			     }
-		    //jetzt wird ermittelt welche Regel zu der ermittelten Zahl gehoert
-
-		    //das zuweisen welche Regel genommen wird, um damit dann weiterarbeite zu koennen und zu schauen, wieviele instances es gibt. 
-			  rule_id = rule_names_ids.at(rule);
-			  
-		    //--> jetzt weiss ich welche Regel genommen wird. 
-			       //Jetzt moechte ich die Instanz dazu ermitteln
-			       //iterieren ueber producedReactions um die ermittelte rule_id mit der rule_id von producedReactions zu vergleichen.
-			       //mittels string comparison
-			
-			vector<MR_Reactions::Reaction_Container::const_iterator> instance_index;       
-			for (MR_Reactions::Reaction_Container::const_iterator pr=producedReactions.begin(); pr != producedReactions.end(); pr++)
-			  {
-			    if (rule_id.compare(pr->first) == 0) //(Regel die aus dem Gillespie ermittelt wurde))
-			      {
-				      //rausspeichern der einträge auf die pr gerade zeigt!!!!
-				      instance_index.push_back(pr);
-			      }
-			  }
-			 
-			int number_of_instances = instance_index.size();
-			/*
-			  !!!!!!!!!!!
-			  Berechnung des Boltzmannfaktors: exp(-deltaE/(kB * T))
-			  !!!!!!!!!!!
-
-			  Berechnung welche der Instanzen verwendet wird
-                          //die gewahelte Instance wird pickedReaction zugewiesen.
-                            // die pickedReaction bekommt die Instanz zugewiesen, die in producedReactions vorhanden ist.
-                            // --> die Reaction Instanz, die genommen wird 
-			    //Berechnung der Energie der einzelnen Instanzen
-			    //da die Energie logischerweise die gleiche ist, wie fuer die genommen Regel kann hier mit der schon berechneten Energie deltaE weitergearbeitet werden --> deltaE*/
-			    
-		//		MR_Reactions::Reaction_Container pickedReaction;
-		//		pickedReaction = instance_index.at(instance_calculation(deltaE, number_of_instances, r0));
-
-				
-				/*
-				  ich weiss jetzt welche instance ich nehme und welche regel
-				  
-				*/
-
-				
-			//**********************************************************************************************************************************************************************
-			//!!!!!begin aenderung just for me to check --> not important to the projekt
-			//!!! ausgabe producedREactions
-			std::cout <<" ===============Produced Reactions" << std::endl;
-			for (MR_Reactions::Reaction_Container::const_iterator itt = producedReactions.begin(); itt!=producedReactions.end();itt++)
-			{
-
-			  std::cout << "Produced Reactions" << *itt << std::endl;
-			  //	std::cout << "Produced Reactions metabolites" << itt->metabolites << endl;
-			}
-			//!!!!Ausgabe von producedSmiles/targetSmiles
-			std::cout << "================ProducedSmiles" << std::endl;
-			for (SMILES_container::const_iterator ittry =producedSmiles.begin(); ittry != producedSmiles.end(); ittry++)
-			{
-			  //std::cout << std::endl << std::endl;
-			  std::cout << "Ausgabe ProducedSmiles" << ittry->first << " " << ittry -> second << std::endl;
-			}					 
-			std::cout << "================ TargetSmiles" << std::endl; 
-			for (SMILES_container::const_iterator iteratortry =targetSmiles.begin(); iteratortry != targetSmiles.end(); iteratortry++)
-			{
-			  //std::cout << std::endl << std::endl;
-			  std::cout << "Ausgabe TargetSmiles" << iteratortry->first << std::endl;
-			}
-			std::cout << "===========ruleId2Reactions" << std::endl; 
-			    for (std::map<std::string,size_t>::const_iterator iterator1 = ruleId2reactions.begin(); iterator1 !=ruleId2reactions.end(); iterator1++)
-			    {
-				
-			   std::cout << " Ausgabe ID: key: " << iterator1->first <<" value: "<< iterator1->second << std::endl;
-			   }
-		
-				//!!!!! aenderung ende */
-
-			    
-			    //========Ende aenderung gillespie algorithm
+//latest version end    
+			    //========Ende aenderung gillespie algorithm======================
 
 			    
 			// print stats on molecules and reactions
@@ -1173,22 +1162,8 @@ cout << rule_id << endl;
 					pickedReactionNumber--;
 				}
 			}
-
-				 //!!beginn aenderung!!!
-				 std::cout << "========= pickedReactionNumber" << std::endl;
-				 std::cout << pickedReactionNumber << std::endl;
-
-				 std::cout <<"=======producedReaction nach der Wahl fuer die rule" << std::endl;
-
-				 for (MR_Reactions::Reaction_Container::const_iterator iti = producedReactions.begin(); iti!=producedReactions.end();iti++)
-				   {
-
-				     std::cout << "Produced Reactions: " << *iti << std::endl; 
-				   }
-										    std::cout << "======Ende====Ausgabe=====" << std::endl;
-
-				
-				 //!!ende aenderung!!!*/
+										    
+			std::cout << "======Ende====Ausgabe=====" << std::endl;
 
 			// print information for picked reaction
 			(*out)	<<"!!!!!  "<<(*pickedReaction) <<"\n"
@@ -1243,7 +1218,7 @@ cout << rule_id << endl;
 					r++;
 				}
 			}
-			//!!!!Ausgabe ProducedSmiles!!!!!!
+//!!!!Ausgabe ProducedSmiles!!!!!!
 			std::cout << "================ProducedSmiles" << std::endl;
 			for (SMILES_container::const_iterator itryi =producedSmiles.begin(); itryi != producedSmiles.end(); itryi++)
 			{
@@ -1259,28 +1234,12 @@ cout << rule_id << endl;
 			  std::cout << "Ausgabe TargetSmiles" << iteratotry1->first << std::endl;
 			  }
 
-		       //!!!Ausgabe deltaE-versuch
-		/*	    double sum_energy_producedSmiles = energie_calculation(producedSmiles);
-			    std::cout <<"Summe producedSmiles" << sum_energy_producedSmiles << std::endl;
-			    
-			    //double sum_energy_targetSmiles = ener <<"Summe targtSmiles" << sum_energy_targetSmiles << std::endl;	       
-			    double deltaE1 = sum_energy_producedSmiles - sum_energy_targetSmiles;
-			    std::cout << "=======Ausgabe deltaE========"<<std::endl;
-									  std::cout << deltaE1 << std::endl;
-									  double kb = 0.592
-									  double Bf = exp(-deltaE1/kb*T);
-			    std::cout << "=======Ausgabe Boltzmannfaktor=======" << std::endl; 									  
-			    std::cout << Bf << std::endl;*/
-
-
-		 //erhoehung der Zeit durch tau
-		//	    t += tau;
-			    
-		//erhoehung von n wenn noetig
-		// n += 1;
-			    
-			    std::cout << "==============Beginn naechste Iteration===========" << std::endl;
-										      
+		     
+		 //update of the time
+			    t = t+dt;
+	    
+	        std::cout << "==============Beginn naechste Iteration===========" << std::endl; 						
+		mpl_ts.clear();		
 		} // end rule application iteration loop
 		
 		
