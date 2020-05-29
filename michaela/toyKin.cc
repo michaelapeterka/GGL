@@ -135,8 +135,6 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
 
  //calculate the energy of the metabolites
  for(int i= 0; i<metabolites.size();++i){
-	 //tno
-	 cout <<"--------temporaere ausgabe ther metabolites ------------" << metabolites.at(i) << endl; 
   sum_metabolites += energie_calculation(metabolites.at(i));
  }
  //calculate the energy of the products
@@ -152,7 +150,7 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
  return rule_;
 }
 
-//add all energy values per instance for one rule and norm it 
+//multiply  all energy values per instance for one rule and norm it(since the energyvalues are already as boltzmannfaktors, they have to be multiply -> boltzmannfaktors have to be multiplied not added!!)  
 
 map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > > ruleID){
  map<string,double> ruleID_total;
@@ -165,7 +163,7 @@ map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > 
   }
   else{
    for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
-    ruleID_total[iter->first]+=(*ii).first;
+    ruleID_total[iter->first]*=(*ii).first;
    }
   }
  }
