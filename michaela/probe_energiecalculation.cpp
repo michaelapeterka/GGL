@@ -11,12 +11,56 @@
 #include "probe_energiecalculation.h"
 #include "toyChemUtil.hh"
 #include <map>
-#include <unordered_map>
 
-double energie_calculation(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smiles)
+
+using namespace std;
+using namespace OpenBabel;
+double energie_calculation(std::string educts)//(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smiles)
 {
+	string input = educts;
+        stringstream input_smiles;
+ 
+        //fill stringstream
+	input_smiles << input << endl;
 
-  //summe initialisieren fuer den return-wert
+	//declare map
+	map<string,double> SMILES_energy;
+	string SMILES_string;
+	
+	//set up OpenBabel converter
+	OBConversion conv;
+	conv.SetInFormat("smi");
+
+	//set up OpenBabel Mol
+	OBMol mol;
+
+	//set up forcefield
+	OBForceField *FF = OBForceField::FindType("MMFF94");
+	if(!FF){
+	cout << "can not set up forcefield"<< endl;
+	}	
+
+	//read the stringstream
+	while(input_smiles >> SMILES_string){
+		if(!conv.ReadString(&mol,SMILES_string)){
+			cout << "can not read SMILES" << SMILES_string << endl;
+			return 1;
+		}
+		if(!FF ->Setup(mol)){
+			cout << "can not set up forcefield" << endl;
+			return 1;
+		}
+		//iterator
+		map<string,double>::iterator iter;
+		iter = SMILES_energy.find(SMILES_string);
+		if(iter == SMILES_energy.end()){
+			SMILES_energy[SMILES_string] = FF->Energy();
+		}
+		mol.Clear();
+	}
+	return SMILES_energy[SMILES_string]; 
+}
+  /*summe initialisieren fuer den return-wert
 
   double sum = 0.0;
   double sum1 = 0.0;
@@ -25,13 +69,12 @@ double energie_calculation(std::unordered_map<std::string, ggl::chem::Molecule*>
 //als allererstes inhalt der map in einen stringstream schreiben, da sonst obenergy nichts berechnen kann
 //stringstream input_smile zum speichern und lesen des uebergebenen parameters fuer die Energieberechnung(smilestrings); "fuellen" mit den SMILES-Strings (also keys) der map.
   
-
+  std::string input;
+  input = educts;
   std::stringstream input_smiles;
-  
-  for (SMILES_container::const_iterator it = probe_smiles.begin(); it != probe_smiles.end(); ++it)
-	{
-	  input_smiles << it->first <<std::endl; 
-	}
+
+	  input_smiles << input <<std::endl; 
+	 
 	
 
 //2. stringstream fuer output_smiles
@@ -101,22 +144,15 @@ std::cerr << "Cannot find the forcefield" << std::endl << std::endl;
    iter = smiles_energy.find(SmilesString);
    if(iter == smiles_energy.end())
     {
-      std::cout << "key value pair not present in the map so calculate the energy for this smilestring" << std::endl;
+      //std::cout << "key value pair not present in the map so calculate the energy for this smilestring" << std::endl;
       value_energy = FF->Energy();
        smiles_energy[SmilesString] = value_energy;//FF ->Energy();
     }
-    else
-    {
-      std::cout << "Key-value pair is present in the map" << endl;
-      value_energy = iter->second;
-      // oder : value_energy = smiles_energy[SmilesString];
-    }
-    sum += value_energy;    
    mol.Clear();
   }//!!!!!!!
 
- return (sum);
-}
+ return smiles_energy[SmilesString];//(sum);
+}*/
  
                       
 
