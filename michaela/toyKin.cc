@@ -104,15 +104,15 @@ std::string extract_generic_smile(string molecule){
  return generic_smile;
 }
 
-//calculate the energy difference of products and metabolites including boltzmann: exp(-deltaE/kBT) 
+//calculate the energy difference of products and metabolites including boltzmann: exp(-deltaE/RT)--> if we use expl() then we have to change every double value to long double!  
 //stand 03.05. --> only calculate the difference because boltzmann does not work correct at the moment!
 double energy_per_instance(double sum_products, double sum_metabolites) {
- //boltzmannconstant
+ /*boltzmannconstant
  double kB;
  //absolut temperature
- double T;
- //boltzmannfactor
- double kBT;
+ double T;*/
+ //"boltzmannfactor" -> used RT in kcal/mol so we have no units in the exponential function  
+ double RT = 0.593;
 //calculting boltzmann 
 double boltzmann=0.0; 
 //storing the energy_difference
@@ -120,8 +120,8 @@ double boltzmann=0.0;
 
  dE = sum_products - sum_metabolites; 
  //for later, when boltzmann is working
- //boltzmann = exp((-dE)/kBT
- //
+ //boltzmann = expl((-dE)/RT)
+ //return boltzmann;
 return dE; 
 }
 
@@ -135,7 +135,10 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
 
  //calculate the energy of the metabolites
  for(int i= 0; i<metabolites.size();++i){
+	 //cout << "----------metabolites in extern function------------: " << metabolites.at(i) << endl;  
   sum_metabolites += energie_calculation(metabolites.at(i));
+
+  //cout << "summe metabolites in extern funktion " << sum_metabolites << endl; 
  }
  //calculate the energy of the products
  for(int j= 0; j<products.size();++j){
@@ -154,7 +157,7 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
 
 map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > > ruleID){
  map<string,double> ruleID_total;
- //add all values of the multimap ruleID
+ //add all values of the multimap ruleID//multiply all values of ruleID --> they are in boltzmannfactors --> so you have to multiply them exp(dE)*exp(dE) <=> 2*exp(dE)
  for(multimap<string,multimap<double,vector<string> > >::iterator iter=ruleID.begin();iter!=ruleID.end();++iter){
   if(ruleID_total.find(iter->first)==ruleID_total.end()){
    for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
@@ -167,10 +170,11 @@ map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > 
    }
   }
  }
-cout << "in unterfunktion---------------------rule_ID_total - add all values of the multimap ruleID" << endl;
+ //output temporary
+//cout << "in unterfunktion---------------------rule_ID_total - add(multipl<) all values of the multimap ruleID " << endl;
 for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i)
 {
-  cout << i->first <<":" << i->second << endl; 
+  //cout << i->first <<":" << i->second << endl; 
 }
  //add all values together to Z_total
  double Z_total = 0.0;
@@ -178,19 +182,14 @@ for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();
   Z_total += it->second;
  }
 //temporary
-cout <<"Z_total" << Z_total<< endl;
+//cout <<"Z_total" << Z_total<< endl;
 
  //divide all entries of ruleID_total by Z_total to get percentage per rule between 0 and 1 (all together it has to be 1)
  //store percentage in a map<string,double>
  map<string,double> ruleID_norm;
 
  for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i){
-  if(ruleID_norm.find(i->first)==ruleID_norm.end()){
-   ruleID_norm[i->first] = (i->second)/Z_total;
-  }
-  /*else{
-   ruleID_norm[i->first] +=(i->second)/Z_total;
-  }*/
+	 ruleID_norm[i->first] = (i->second)/Z_total; 
  }
  return ruleID_norm;
 }
@@ -269,16 +268,16 @@ string calculate_ruleID(map<string,double> _rule_rates, double _rule_rate_total,
 int reaction_taken(vector<double> _instance_energy)
 {
  //sum all values up
- srand(time(NULL));
- double r2 = random_number01();
+
  double r3 = random_number01();
-  
+//cout << "------------randomnumber----------- r3: " << r3 << endl; 
+
  double sum_instance = 0.0;
 
  for(int i = 0; i<_instance_energy.size();++i){
 	 sum_instance += _instance_energy.at(i);
  }
-cout <<"summe instance : " << sum_instance << endl; 
+//cout <<"summe instance : " << sum_instance << endl; 
  //norm the entries
  vector<double> norm_instance_energy;
  for(int j= 0; j<_instance_energy.size();++j){
@@ -295,7 +294,7 @@ cout <<"summe instance : " << sum_instance << endl;
 	  break;
 	 }
  }
- cout << "Diese instanz wurde genommen" << r  << endl; 
+ //cout << "Diese instanz wurde genommen" << r  << endl; 
  return r; 
 }
 
@@ -871,7 +870,6 @@ int main( int argc, char** argv ) {
 		//Calculate the molecular_population_level in targetSmile
 		
 		std::map<std::string,int> mpl_ts;
-		std::map<std::string,int> mpl_ps;
 		
                	 //initialize the time t
                    double t = 0.0;
@@ -954,7 +952,7 @@ int main( int argc, char** argv ) {
                            double r0 = random_number01();
 			   cout << " r0 : " << r0 << endl; 
                            double r1 = random_number01();
-			   cout << " r1 : " << r1 << endl;  
+			   cout << " r1 : " << r1 << endl;   
 			
 			//NEUE VERSION VOM 03.05.2020 
 			vector<string> metabolites_all;	
