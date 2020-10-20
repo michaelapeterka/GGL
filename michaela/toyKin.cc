@@ -153,11 +153,11 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
  return rule_;
 }
 
-//multiply  all energy values per instance for one rule and norm it(since the energyvalues are already as boltzmannfaktors, they have to be multiply -> boltzmannfaktors have to be multiplied not added!!)  
+//add all energy values per reaction instance per rule and norm it via Zustandssumme(since the energyvalues are already as boltzmannfaktors, they have to be added-> boltzmannfaktors have to be added!!)  
 
 map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > > ruleID){
  map<string,double> ruleID_total;
- //add all values of the multimap ruleID//multiply all values of ruleID --> they are in boltzmannfactors --> so you have to multiply them exp(dE)*exp(dE) <=> 2*exp(dE)
+ //add all values of the multimap ruleID --> they are in boltzmannfactors --> so you have to add  them exp(dE)+exp(dE) <=> 2*exp(dE)
  for(multimap<string,multimap<double,vector<string> > >::iterator iter=ruleID.begin();iter!=ruleID.end();++iter){
   if(ruleID_total.find(iter->first)==ruleID_total.end()){
    for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
@@ -165,18 +165,18 @@ map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > 
    }
   }
   else{
-   for(multimap<double,vector<string> >::iterator ii=(*iter).second.begin();ii!=(*iter).second.end();++ii){
-    ruleID_total[iter->first]*=(*ii).first;
+   for(multimap<double,vector<string> >::iterator ij=(*iter).second.begin();ij!=(*iter).second.end();++ij){
+    ruleID_total[iter->first]+=(*ij).first;
    }
   }
  }
  //output temporary
-//cout << "in unterfunktion---------------------rule_ID_total - add(multipl<) all values of the multimap ruleID " << endl;
+//cout << "in unterfunktion---------------------rule_ID_total - add all values of the multimap ruleID " << endl;
 for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i)
 {
   //cout << i->first <<":" << i->second << endl; 
 }
- //add all values together to Z_total
+ //add all values together to Z_total (Zustandssumme over all rules)
  double Z_total = 0.0;
  for(map<string,double>::iterator it=ruleID_total.begin();it!=ruleID_total.end();++it){
   Z_total += it->second;
@@ -194,7 +194,7 @@ for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();
  return ruleID_norm;
 }
 
-//calculate the reactionrate per ruleID
+//calculate the reactionrate per ruleID; can also be used for calculating the reaction rates per reaction (=matches per rule): how many of these reactioninstances are present in the current rule 
 double reaction_rates_calc(vector<string>targetSmile,map<string,int> mpl_ts){
  //for store the generic_smiles
   map<string,double> _generic_smile;
@@ -322,7 +322,7 @@ for(om = result.first;om!=result.second;++om){
  }
 }
 
- //give the vector of energies to anoter function for calculating the reaction instance
+ //give the vector of energies to the function "reaction taken" to calculate the reaction instance
  rp = reaction_taken(instance_energy);
 
  //pick the metabolites to the ruleID_taken and store all in a map
@@ -961,7 +961,7 @@ int main( int argc, char** argv ) {
 			typedef multimap<double,vector<string> > dE_met;
 			dE_met Emet;
 		        multimap<string,dE_met> ruleID;	//store all ruleID-energyvalue-metabolites
-			map<string,double> ruleID_percentage;//stores the percentage per ruleID (c_my)
+			map<string,double> ruleID_percentage;//stores the percentage per ruleID
 			map<string,double> ruleID_reactionRates;//molecule combination (h_my)
 			map<string,double> rule_rates; //a_my
 			double rule_rate_total=0.0; //a0;
@@ -1076,7 +1076,7 @@ for(map<string,double>::iterator i=rule_rates.begin();i!=rule_rates.end();++i){
 rule_rate_total = rule_rate_total_calc(rule_rates);
 cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
 
-//calculate dt (=waiting time=a0) 
+//calculate dt (=waiting time) 
 dt = (-log(r0))/rule_rate_total;
 //calculate the ruleID
 rule_taken = calculate_ruleID(rule_rates,rule_rate_total,r1); 
@@ -1084,7 +1084,7 @@ rule_taken = calculate_ruleID(rule_rates,rule_rate_total,r1);
 cout <<"-------------------ruleID which is taken---------------" << rule_taken << endl;
 
 //calculate the reaction_instance of the rule ID in an extern function- store ruleID and belonging metabolites!
-map<string,vector<string> > ruleID_metabolites;
+map<string,vector<string> > ruleID_metabolites; //value is a vector because every metabolite is stored seperately - was preimplemented
 ruleID_metabolites = calc_ruleID_met(ruleID,rule_taken);
 
 //temporary output of map
