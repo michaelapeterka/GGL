@@ -10,10 +10,9 @@
 #include <sstream>
 #include <utility>
 #include <map>
+#include <unordered_map>
+#include "toyChemUtil.hh"
 
-using namespace std;
-
-
-double energie_calculation(std::map<std::string, double>&);
+double energie_calculation (std::string molecule,map<string,double>& look_up_map);//(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smilesstrings);
 
 #endif
