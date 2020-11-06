@@ -11,27 +11,55 @@
 #include "probe_energiecalculation.h"
 #include "toyChemUtil.hh"
 #include <map>
-
+#include<boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace OpenBabel;
-double energie_calculation(std::string educts)//(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smiles)
+using namespace boost::algorithm;
+
+double energie_calculation(std::string molecule,std::map<string,double>& look_up_map)//(std::unordered_map<std::string, ggl::chem::Molecule*>& probe_smiles)
 {
-	string input = educts;
-        stringstream input_smiles;
+	//canonicalization of the input smiles
+	//1. stringstream for input_smile
+	   string input = molecule;
+           stringstream input_smiles;
  
-        //fill stringstream
-	input_smiles << input << endl;
+           //fill stringstream
+	   input_smiles << input << endl;
 
-	//declare map
+	//2. stringstream for output
+	   stringstream output_smiles;
+
+	/*declare map
 	map<string,double> SMILES_energy;
-	string SMILES_string;
+	string SMILES_string;*/
 	
-	//set up OpenBabel converter
-	OBConversion conv;
-	conv.SetInFormat("smi");
+	//3. Set up OpenBabel format converter
+	  OBConversion conv(&input_smiles,&output_smiles);
+	  if(!conv.SetInAndOutFormats("smi","can")){
+		  cerr << "Can not open output file" << endl; 
+          }
+	   
+	  //convert molecule
+	  int n = conv.Convert();
+	  cout << n << "molecules converted" << endl; /*OBConversion conv;conv.SetInFormat("smi");*/
+         
+        //4. Energy value from look-up table
+	  //use boost library to trim (delete the whitespace before and after the canonical string to get the same size)
+ 	  string canonical = output_smiles.str();
+	  string new_canonical = trim_copy(canonical);
 
-	//set up OpenBabel Mol
+	  //iterate through map
+	   double value = 0.0;
+	   map<string,double>::iterator iten = look_up_map.find(new_canonical);
+	   if(iten != look_up_map.end()){
+		   value = iten ->second;
+		   cout << "GOT IT" << iten -> first << " : " << iten->second << endl;
+           }
+	   else{ 
+		   cerr << "sorry, no such molecule in look-up table" << endl; 
+	   }	   
+	/*set up OpenBabel Mol
 	OBMol mol;
 
 	//set up forcefield
@@ -58,7 +86,14 @@ double energie_calculation(std::string educts)//(std::unordered_map<std::string,
 		}
 		mol.Clear();
 	}
-	return SMILES_energy[SMILES_string]; 
+	/*cout <<"--------------Energyvalues in Funktion Energyberechnung------------" << endl;
+	for(map<string,double>::iterator i = SMILES_energy.begin();i !=SMILES_energy.end(); ++i)
+	{
+		cout << i->first <<":"<< i->second << endl;
+	
+	}
+	cout <<"------------------ENDE EXTERNE FUNKTION--------------" << endl;*/ 
+	return value; //SMILES_energy[SMILES_string]; 
 }
   /*summe initialisieren fuer den return-wert
 
@@ -91,7 +126,7 @@ double energie_calculation(std::string educts)//(std::unordered_map<std::string,
 
  //4. set up openbabel format converter
 
- OpenBabel::OBConversion conv (&input_smiles, &output_smiles);
+ OpenBabel::OBConversion conv (&input_smiles, &output_smiles);//!!!!!!!!!!!!konvertierung von input smile in ein canonical 
 
        if(!conv.SetInAndOutFormats("smi","can"))
          {
