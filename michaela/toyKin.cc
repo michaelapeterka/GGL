@@ -41,7 +41,7 @@
 
 //!!inkludieren der header datei fuer die Berechnung der Energie
 #include "probe_energiecalculation.h"
-
+#include<iostream>
 //////////////////////////////////////////////////////////////////////////
 
 #include <cstdlib>
@@ -117,17 +117,18 @@ double energy_per_instance(double sum_products, double sum_metabolites) {
 double boltzmann=0.0; 
 //storing the energy_difference
  double dE = 0.0;
-
- dE = sum_products - sum_metabolites; 
+ cout << "summe products" << sum_products << endl;
+ cout << "summe educts " << sum_metabolites << endl; 
+ dE = (sum_products) - (sum_metabolites); 
  //for later, when boltzmann is working
- //boltzmann = expl((-dE)/RT)
+ //boltzmann = exp((-dE)/RT)
  //return boltzmann;
 return dE; 
 }
 
 //version 03.05.2020 Beginn
 //calculate the energy of metabolites and products and return a multimap 
-multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<string> products){
+multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<string> products, map<string,double>& look_up_map){
  multimap<double,vector<string > > rule_;
  double sum_metabolites = 0.0;
  double sum_products = 0.0;
@@ -136,13 +137,13 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
  //calculate the energy of the metabolites
  for(int i= 0; i<metabolites.size();++i){
 	 //cout << "----------metabolites in extern function------------: " << metabolites.at(i) << endl;  
-  sum_metabolites += energie_calculation(metabolites.at(i));
+  sum_metabolites += energie_calculation(metabolites.at(i),look_up_map);
 
   //cout << "summe metabolites in extern funktion " << sum_metabolites << endl; 
  }
  //calculate the energy of the products
  for(int j= 0; j<products.size();++j){
-  sum_products += energie_calculation(products.at(j));
+  sum_products += energie_calculation(products.at(j), look_up_map);
  }
  //calculate the energy difference and do it statistically correct 
  dE = energy_per_instance(sum_products,sum_metabolites);
@@ -170,11 +171,11 @@ map<string,double> ruleID_calc(multimap<string,multimap<double,vector<string> > 
    }
   }
  }
- //output temporary
-//cout << "in unterfunktion---------------------rule_ID_total - add all values of the multimap ruleID " << endl;
+ 
+cout << "!!!!!!!!!!!!!!!!!!!in unterfunktion---------------------rule_ID_total - add all values of the multimap ruleID !!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i)
 {
-  //cout << i->first <<":" << i->second << endl; 
+  cout << i->first <<":" << i->second << endl; 
 }
  //add all values together to Z_total (Zustandssumme over all rules)
  double Z_total = 0.0;
@@ -182,7 +183,7 @@ for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();
   Z_total += it->second;
  }
 //temporary
-//cout <<"Z_total" << Z_total<< endl;
+cout <<"!!!!!!!!!!!!!!!!!!!!!Z_total!!!!!!!!!!!!!!!!!!!!!!!!!!!" << Z_total<< endl;
 
  //divide all entries of ruleID_total by Z_total to get percentage per rule between 0 and 1 (all together it has to be 1)
  //store percentage in a map<string,double>
@@ -191,6 +192,13 @@ for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();
  for(map<string,double>::iterator i = ruleID_total.begin();i!=ruleID_total.end();++i){
 	 ruleID_norm[i->first] = (i->second)/Z_total; 
  }
+
+cout << "ausgabe der einzelnen prozente in der externen funktion" << endl;
+for(map<string,double>::iterator i = ruleID_norm.begin();i!=ruleID_norm.end();++i)
+{
+	cout << i-> first << ": " << i->second << endl; 
+}
+cout<<"!!!!!!!!!!!!!!!!!!!!ENDE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<< endl;
  return ruleID_norm;
 }
 
@@ -268,12 +276,9 @@ string calculate_ruleID(map<string,double> _rule_rates, double _rule_rate_total,
 int reaction_taken(vector<double> _instance_energy)
 {
  //sum all values up
-
  double r3 = random_number01();
 //cout << "------------randomnumber----------- r3: " << r3 << endl; 
-
- double sum_instance = 0.0;
-
+/* double sum_instance = 0.0;
  for(int i = 0; i<_instance_energy.size();++i){
 	 sum_instance += _instance_energy.at(i);
  }
@@ -282,17 +287,34 @@ int reaction_taken(vector<double> _instance_energy)
  vector<double> norm_instance_energy;
  for(int j= 0; j<_instance_energy.size();++j){
 	 norm_instance_energy.push_back((_instance_energy.at(j))/sum_instance);
+ }*/
+
+ vector<double> vec2;
+ int m = _instance_energy.size();
+
+ //that every vector entry gets the same probability
+ for( int k = 0; k < m; ++k){
+   vec2.push_back(1./m);
  }
- //get to know the reaction instance
- double sum_ = 0.0;
+
+ //get to know which instance will be taken
+ double _sum = 0.0;
  int r = 0;
 
- for(int i = 0; i <norm_instance_energy.size();++i){
+ /*for(int i = 0; i <norm_instance_energy.size();++i){
 	 sum_ += norm_instance_energy.at(i);
 	 if(sum_ > r3){
 	  r = i;
 	  break;
 	 }
+ }*/
+
+ for(int i = 0; i < vec2.size();++i){
+   _sum += vec2.at(i);
+   if(_sum > r3){
+      r = i;
+      break;
+   }
  }
  //cout << "Diese instanz wurde genommen" << r  << endl; 
  return r; 
@@ -871,6 +893,33 @@ int main( int argc, char** argv ) {
 		
 		std::map<std::string,int> mpl_ts;
 		
+		//initialize map for look-up table
+		  map<string,double> look_up_map;
+                //initialize key and value for the map
+		  string key;
+		  double value = 0.0; 
+
+		//open/read textfile 
+		  fstream textfile;
+		  textfile.open("canonical_smiles.txt");
+                	
+		//check if the map exists
+		  if(!textfile){
+			 cout << "ERROR: can not open the file" << endl; 
+		  }
+
+		 //fill map with textfile entries
+                  while(textfile >> key >> value){
+                        look_up_map[key] = value;
+                  }
+                  
+		  cout << "alle eintraege der map!!!!!!! " << endl;
+		  for (map<string,double>:: iterator i = look_up_map.begin();i!=look_up_map.end();++i)
+		  {
+		    cout << i->first << " : " << i->second << endl; 
+		  }
+
+		  cout << "ENDE MAP----------------------------" << endl; 
                	 //initialize the time t
                    double t = 0.0;
 		//!!!Ende
@@ -950,9 +999,9 @@ int main( int argc, char** argv ) {
 
 		       //generate random numbers
                            double r0 = random_number01();
-			   cout << " r0 : " << r0 << endl; 
+			   cout << " random_number_0 : " << r0 << endl; 
                            double r1 = random_number01();
-			   cout << " r1 : " << r1 << endl;   
+			   cout << " random_number_ 1 : " << r1 << endl;   
 			
 			//NEUE VERSION VOM 03.05.2020 
 			vector<string> metabolites_all;	
@@ -999,7 +1048,7 @@ int main( int argc, char** argv ) {
 					} 
 				
 				       //fill the innermap of ruleID with energydifference and metabolites(metabolites because of uniqueness)
-                                         Emet = rule_dE(metabolites_all,products_all);
+                                         Emet = rule_dE(metabolites_all,products_all,look_up_map);
 				       
 				      //fill the outermap ruleID
 				         ruleID.insert(make_pair(r->rule_id,Emet));
@@ -1034,7 +1083,7 @@ int main( int argc, char** argv ) {
 					}
 
 					//fill the innermap of ruleID with energydifference and metabolites(metabolites because of uniqueness)
-                                         Emet = rule_dE(metabolites_all,products_all);
+                                         Emet = rule_dE(metabolites_all,products_all, look_up_map);
 
                                       //fill the outermap ruleID
                                          ruleID.insert(make_pair(r->rule_id,Emet));
@@ -1055,31 +1104,32 @@ int main( int argc, char** argv ) {
                                             }
                                            }
                                         }
-
+                        cout <<"------------------------------ruleID-Energyvalue-Metabolites-Ende-------" << endl;
 	               //contains the ruleID and the percentage
 		        ruleID_percentage = ruleID_calc(ruleID);
 
 			//just for output - temporary
-			cout << "-------------ruleID_percentage--------------";
+			cout << "!!!!!!!!!!!!!!!!!!!!!!!-------------ruleID_percentage--------------!!!!!!!!!!!!!!!!!";
 			for (map<string,double>::iterator i= ruleID_percentage.begin();i!=ruleID_percentage.end();++i){
 			 cout << i->first <<":" << i->second<< endl; 
 			}
+			cout << "!!!!!!!!!!!ruleID-percentage_ENDE------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl; 
 //calculate the rule_rates for each rule
-rule_rates = rule_rates_calc(ruleID_percentage,ruleID_reactionRates);
+/*rule_rates = rule_rates_calc(ruleID_percentage,ruleID_reactionRates);
 //just for output - temporary
 cout << "----------------rule_rate----------------"<< endl; 
 for(map<string,double>::iterator i=rule_rates.begin();i!=rule_rates.end();++i){
 	cout <<i->first << ": " << i->second << endl;
-}
+}*/
 
 //calculate the total rule_rate
-rule_rate_total = rule_rate_total_calc(rule_rates);
+rule_rate_total = rule_rate_total_calc(ruleID_percentage);//(rule_rates);
 cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
 
-//calculate dt (=waiting time) 
+//calculate dt (=waiting time) --!!!!!muss noch geaendert werden, da propensity geandert wurde !!!!!!!!!!!!!
 dt = (-log(r0))/rule_rate_total;
 //calculate the ruleID
-rule_taken = calculate_ruleID(rule_rates,rule_rate_total,r1); 
+rule_taken = calculate_ruleID(ruleID_percentage,rule_rate_total,r1);//(rule_rates,rule_rate_total,r1); 
 //ausgabe der genommenen ruleID - just temporary
 cout <<"-------------------ruleID which is taken---------------" << rule_taken << endl;
 
