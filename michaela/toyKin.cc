@@ -42,12 +42,18 @@
 //!!inkludieren der header datei fuer die Berechnung der Energie
 #include "probe_energiecalculation.h"
 #include<iostream>
+#include<openbabel/obconversion.h>
+#include<openbabel/mol.h>
+#include<boost/algorithm/string.hpp>
 //////////////////////////////////////////////////////////////////////////
 
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
 
+//gillespie
+using namespace boost::algorithm;
+using namespace OpenBabel;
 size_t
 getRandomNumber( const size_t maxExluding )
 {
@@ -104,26 +110,76 @@ std::string extract_generic_smile(string molecule){
  return generic_smile;
 }
 
+//canonization with openbabel
+
+string smi_converter(string molecule)
+{
+	 //canonicalization of the input smiles
+        //1. stringstream for input_smile
+           string input = molecule;
+           stringstream input_smiles;
+
+           //fill stringstream
+           input_smiles << input << endl;
+
+        //2. stringstream for output
+           stringstream output_smiles;
+
+        /*declare map
+        map<string,double> SMILES_energy;
+        string SMILES_string;*/
+
+        //3. Set up OpenBabel format converter
+          OBConversion conv(&input_smiles,&output_smiles);
+          if(!conv.SetInAndOutFormats("smi","can")){
+                  cerr << "Can not open output file" << endl;
+          }
+
+          //convert molecule
+          int n = conv.Convert();
+          cout << n << "molecules converted" << endl; /*OBConversion conv;conv.SetInFormat("smi");*/
+
+        //4. Energy value from look-up table
+          //use boost library to trim (delete the whitespace before and after the canonical string to get the same size)
+          string canonical = output_smiles.str();
+          string new_canonical = trim_copy(canonical);
+
+return new_canonical;
+}
 //calculate the energy difference of products and metabolites including boltzmann: exp(-deltaE/RT)--> if we use expl() then we have to change every double value to long double!  
 //stand 03.05. --> only calculate the difference because boltzmann does not work correct at the moment!
 double energy_per_instance(double sum_products, double sum_metabolites) {
- /*boltzmannconstant
- double kB;
- //absolut temperature
- double T;*/
+	//what we are doing: Uebergabe der Summe der Produkte und die Summe der Edukte(metabolites) um dE(dG) zu berechnen. Da die berechnet Energie durch das exteren Programm in hartree ist, wird die Energie zuerst umgerechnet in kj/mol und dann durch RT dividiert; aber vorsicht: !!!!!!! es kommt zu einer Umrechnung von kj/mol in MJ/mol (megajoule) (Faktor 1000). Somit ist bei einer etwaigen Graphik darauf hinzuweisen! 
  //"boltzmannfactor" -> used RT in kcal/mol so we have no units in the exponential function  
  double RT = 0.593;
 //calculting boltzmann 
-double boltzmann=0.0; 
-//storing the energy_difference
+double boltzmann=0.0;
+//tmp variable for kj/mol
+double tmp_kj = 0.0;
+//tmp um wert in megajoul umzurechnen
+double tmp_mega = 0.0;
+//Faktor 1000
+double fak_mega = 1000;
+//tmp variable for kcal/mol
+//double tmp_kcal = 0.0;
+//storing the energy_difference in hartree
  double dE = 0.0;
  cout << "summe products" << sum_products << endl;
  cout << "summe educts " << sum_metabolites << endl; 
  dE = (sum_products) - (sum_metabolites); 
- //for later, when boltzmann is working
- //boltzmann = exp((-dE)/RT)
+//multiply by a factor 2625.5 to get kj/mol or 627.5 to get kcal/mol
+//1.) kj/mol
+ tmp_kj = dE*2625.5; 
+ cout << "tmp_kj" << tmp_kj << endl;
+
+ //divide through RT
+tmp_mega= (-(dE)/RT)/1000;
+cout << "MegaJoule/mol" << tmp_mega << endl; 
+//use the exponential function for boltzmannfactor
+boltzmann = exp(tmp_mega);
+cout << "boltzmann (tmp_mega)" << boltzmann <<  endl; 
  //return boltzmann;
-return dE; 
+return boltzmann; 
 }
 
 //version 03.05.2020 Beginn
@@ -447,6 +503,8 @@ int main( int argc, char** argv ) {
 	using namespace std;
 	using namespace ggl;
 	using namespace chem;
+	//gillespie
+//	using namespace boost::algorithm;
 	
 	//////////////////////////////////////////////////////////////
 	// data to fill
@@ -892,7 +950,8 @@ int main( int argc, char** argv ) {
 		//Calculate the molecular_population_level in targetSmile
 		
 		std::map<std::string,int> mpl_ts;
-		
+	        map<string,int> mpl_ts_afterwards;
+		map<string,int>mpl_produced;
 		//initialize map for look-up table
 		  map<string,double> look_up_map;
                 //initialize key and value for the map
@@ -919,9 +978,20 @@ int main( int argc, char** argv ) {
 		    cout << i->first << " : " << i->second << endl; 
 		  }
 
-		  cout << "ENDE MAP----------------------------" << endl; 
+		  cout << "ENDE MAP----------------------------" << endl;
+
+		 //OUTPUTFILE
+		   //open the outputfile for writing
+                    ofstream output_file;
+		    output_file.open("gillespie.txt",ios::app);
+		    if(!output_file)
+		    {
+		     cerr << "Error: output file could not be openende" << endl;
+		    }
                	 //initialize the time t
                    double t = 0.0;
+
+		  
 		//!!!Ende
 		
 		  // set up graph matcher
@@ -977,17 +1047,18 @@ int main( int argc, char** argv ) {
 		cout << "-------------Ausgabe TargetSmiles--------------"<<endl ; 
 
 			for(SMILES_container::const_iterator tts = targetSmiles.begin();tts!=targetSmiles.end();tts++){
-				cout << tts->first <<   endl; 
+				cout << tts->first << endl; 
 			}
 			//calculate the molcule population via TargetSmiles : how many molecules are present at them moment 
 			for (SMILES_container::const_iterator its = targetSmiles.begin();its != targetSmiles.end();its++){
-				string generic_smile = extract_generic_smile(its->first);
-
-				if (mpl_ts.find(generic_smile) == mpl_ts.end()){
-					mpl_ts[generic_smile] = 1;
+				//string generic_smile = extract_generic_smile(its->first);
+                                
+			        string smi_to_can = smi_converter(its->first);	
+				if (mpl_ts.find(smi_to_can)==mpl_ts.end()){//(mpl_ts.find(generic_smile) == mpl_ts.end()){
+                                    mpl_ts[smi_to_can] = 1;//mpl_ts[generic_smile] = 1;
 				}
 				else{
-					mpl_ts[generic_smile]++;
+				    mpl_ts[smi_to_can]++;//mpl_ts[generic_smile]++;
 				}
 			}
 
@@ -1021,29 +1092,29 @@ int main( int argc, char** argv ) {
 			typedef std::map< std::string, size_t > RuleHist;
 			RuleHist ruleId2reactions;
 			for (MR_Reactions::Reaction_Container::const_iterator r=producedReactions.begin(); r != producedReactions.end(); r++) {
-				//ausgabe von producedreaction -- selbst geschrieben
-				cout<< "---------------ausgabe r------------"<< endl; 
-                                 cout << (*r) << endl;
-
-				 cout <<"-------------ausgabe r ende ------------" << endl;  
+			  
 				// check if not seen so far  
 				  if (ruleId2reactions.find(r->rule_id) == ruleId2reactions.end()) {
 					ruleId2reactions[r->rule_id] = 1;
 					//nummerierung der Regeln!!!!!!!!!!!!!!!!!!
-				        cout <<"-----------ruleId2reactions-----------" << endl;
+				        cout <<"-----------ruleId2reactions----------- in der for schleife, wenn noch nicht gesehen worden ist!!!!!" << endl;
 				       for (map<string,size_t>::iterator rulerator= ruleId2reactions.begin();rulerator != ruleId2reactions.end();++rulerator)
 				            {
 						    cout << rulerator -> first << " : " << rulerator -> second << endl; 
 				            }		    
-				       cout << "----------ruleId2reactions-Ende----------" << endl;
+				       //cout << "----------ruleId2reactions-Ende----------if ende" << endl;
 					//metabolites
 					for(Reaction::Metabolite_Container::const_iterator me1 = r-> metabolites.begin(); me1 != r->metabolites.end();++me1){
+						//ausgabe metabolites
+						cout << " ausgabe metabolites----------------" << *me1 << endl; 
 						//all metabolites which occur in one reaction instance to store for adding later on
 						metabolites_all.push_back(*me1);
 					}		
                                         //products
 					for(Reaction::Metabolite_Container::const_iterator pr1 = r->products.begin(); pr1 != r->products.end(); ++pr1){
-						//all products which occur in one reaction instance to store for adding later on 
+					
+						//all products which occur in one reaction instance to store for adding later on
+						cout << "ausgabe products-----------"<< *pr1 << endl;  
 						products_all.push_back(*pr1); 
 					} 
 				
@@ -1056,29 +1127,37 @@ int main( int argc, char** argv ) {
 				      //calculate the reactionrates according to the molecules occur targetsmiles
 				        ruleID_reactionRates[r->rule_id]=reaction_rates_calc(metabolites_all,mpl_ts);
 					//just for representation --> temporary
-					cout <<"-----------------------reation_rate_per rule ---------------------" << endl; 
+					//cout <<"-----------------------reation_rate_per rule ---------------------" << endl; 
 					for(map<string,double>::iterator i = ruleID_reactionRates.begin();i!=ruleID_reactionRates.end();++i){
-						cout << i->first <<": " << i->second << endl; 
+				        	cout << i->first <<": " << i->second << endl; 
 				        }		
 			                metabolites_all.clear();	
 				        products_all.clear(); 	
 					//Ende
 				  }
 				  
-				  else {
+				  else { 
 					// increase counter
 					ruleId2reactions[r->rule_id]++;
-
+                                        
+				       cout << "in der else-schleife----------" << endl;
+			               for(map<string,size_t>::iterator ruler = ruleId2reactions.begin();ruler!=ruleId2reactions.end();++ruler)
+				       {
+				        cout << ruler->first << " : " << ruler->second << endl; 
+				       }	       
 					//Version4.5.2020
-					//metabolites 
+					//metabolites
+
 					for(Reaction::Metabolite_Container::const_iterator me2 = r-> metabolites.begin();me2!=r->metabolites.end();++me2){
 						//all metabolites which occur in one reaction instance to store for adding later on
+						cout << "metabolites in der else-schleife" << *me2 << endl;
                                                 metabolites_all.push_back(*me2); 
 					}
                                        
                                   	//products
 				        for(Reaction::Metabolite_Container::const_iterator pr2 = r->products.begin();pr2 != r->products.end();++pr2){
 						 //all products which occur in one reaction instance to store for adding later on
+						cout << "products in der else-schleife" << *pr2 << endl; 
                                                 products_all.push_back(*pr2); 
 					}
 
@@ -1094,7 +1173,8 @@ int main( int argc, char** argv ) {
 			}//for-loop end
 			//latest version
 			//
-			cout <<"----------------------------ruleID-ENERGYVALUE-METABOLITES-------------"<<endl; 
+			cout << "Size of ruleID-toReactions" << ruleId2reactions.size() << endl; 
+			//cout <<"----------------------------ruleID-ENERGYVALUE-METABOLITES------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11-"<<endl; 
 		        for(multimap<string,dE_met>::iterator irule=ruleID.begin();irule!=ruleID.end();++irule){
                                           cout << irule->first << ":";
                                            for(multimap<double,vector<string> >::iterator idE=(*irule).second.begin();idE!=(*irule).second.end();++idE){
@@ -1104,16 +1184,16 @@ int main( int argc, char** argv ) {
                                             }
                                            }
                                         }
-                        cout <<"------------------------------ruleID-Energyvalue-Metabolites-Ende-------" << endl;
+                       // cout <<"------------------------------ruleID-Energyvalue-Metabolites-Ende---!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111----" << endl;
 	               //contains the ruleID and the percentage
 		        ruleID_percentage = ruleID_calc(ruleID);
 
 			//just for output - temporary
-			cout << "!!!!!!!!!!!!!!!!!!!!!!!-------------ruleID_percentage--------------!!!!!!!!!!!!!!!!!";
+			//cout << "!!!!!!!!!!!!!!!!!!!!!!!-------------ruleID_percentage--------------!!!!!!!!!!!!!!!!!";
 			for (map<string,double>::iterator i= ruleID_percentage.begin();i!=ruleID_percentage.end();++i){
 			 cout << i->first <<":" << i->second<< endl; 
 			}
-			cout << "!!!!!!!!!!!ruleID-percentage_ENDE------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl; 
+			//cout << "!!!!!!!!!!!ruleID-percentage_ENDE------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl; 
 //calculate the rule_rates for each rule
 /*rule_rates = rule_rates_calc(ruleID_percentage,ruleID_reactionRates);
 //just for output - temporary
@@ -1124,7 +1204,7 @@ for(map<string,double>::iterator i=rule_rates.begin();i!=rule_rates.end();++i){
 
 //calculate the total rule_rate
 rule_rate_total = rule_rate_total_calc(ruleID_percentage);//(rule_rates);
-cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
+//cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
 
 //calculate dt (=waiting time) --!!!!!muss noch geaendert werden, da propensity geandert wurde !!!!!!!!!!!!!
 dt = (-log(r0))/rule_rate_total;
@@ -1138,7 +1218,7 @@ map<string,vector<string> > ruleID_metabolites; //value is a vector because ever
 ruleID_metabolites = calc_ruleID_met(ruleID,rule_taken);
 
 //temporary output of map
-cout << "ruleID and belonging metabolites of the instance---------------------------" << endl; 
+/*cout << "ruleID and belonging metabolites of the instance---------------------------" << endl; 
 for(map<string,vector<string> >::iterator i = ruleID_metabolites.begin();i!=ruleID_metabolites.end();++i)
 {
 	cout << i->first <<": " <<  endl;
@@ -1147,7 +1227,7 @@ for(map<string,vector<string> >::iterator i = ruleID_metabolites.begin();i!=rule
     cout << (*j) << endl; 
   }
 }
-cout <<"RUleID and Metabolites END ---------------------" << endl; 
+cout <<"RUleID and Metabolites END ---------------------" << endl;*/ 
 
 //latest version end    
 			    //========Ende aenderung gillespie algorithm======================
@@ -1177,23 +1257,123 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;
 			}
 
 			// pick a random rule
-			size_t pickedRule = getRandomNumber( ruleId2reactions.size() );
+			//size_t pickedRule = getRandomNumber( ruleId2reactions.size() );
 			// get hist data of picked rule
-			RuleHist::const_iterator pickedRuleHist = ruleId2reactions.begin();
-			while( pickedRule > 0 ) {
-				pickedRuleHist++;
-				pickedRule--;
-			}
+			//RuleHist::const_iterator pickedRuleHist = ruleId2reactions.begin();
+			//while( pickedRule > 0 ) {
+			//	pickedRuleHist++;
+			//	pickedRule--;
+			//}
 
 			//!!!beginn aenderung
-			std::cout << "=============pickedRule (int number)" << std::endl;
-			std::cout << pickedRule << std::endl;
+			//std::cout << "=============pickedRule (int number)" << std::endl;
+			//std::cout << pickedRule << std::endl;
 
 
 			//!!ende aenderung 
 			// pick a reaction for this rule
-			size_t pickedReactionNumber = getRandomNumber( pickedRuleHist->second );
-			// find according reaction (TODO could be done via binary search since reactions are ordered by ruleID)
+			//size_t pickedReactionNumber = getRandomNumber( pickedRuleHist->second );
+
+			//ich lasse der weil beide um zuschauen und klammere sie nur aus, wird spater dann noch geandert
+			/* MR_Reactions::Reaction_Container::const_iterator pickedReaction = producedReactions.end();
+                        for (MR_Reactions::Reaction_Container::const_iterator r=producedReactions.begin(); r != producedReactions.end(); r++) {
+                                // check if reaction for picked rule
+                                if (r->rule_id == pickedRuleHist->first) {
+                                        // check if this is ithe reaction to report
+                                        if (pickedReactionNumber == 0) {
+                                                // store picked reaction
+                                                pickedReaction = r;
+                                                // stop search
+                                                break;
+                                        }
+                                        pickedReactionNumber--;
+                                }
+                        }*/
+                        
+			cout << "ruleID and belonging metabolites of the instance---------------------------" << endl;
+			for(map<string,vector<string> >::iterator i = ruleID_metabolites.begin();i!=ruleID_metabolites.end();++i)
+			{
+        			cout << i->first <<": " <<  endl;
+  				for(vector<string>::iterator j = (*i).second.begin();j!=(*i).second.end();++j)
+  				{				
+    					cout << (*j) << endl;
+  				}
+			}
+
+		        	int count_aussen = 0;
+				int count_rule_id_metab = 0;
+				int count_rule_if = 0; 
+				int count_metab = 0;
+				int count_vector = 0; 
+				int count_gefunden = 0; 
+                        //versuch in das programm einzubauen
+			MR_Reactions::Reaction_Container::const_iterator pickedReaction = producedReactions.end();
+			for (MR_Reactions::Reaction_Container::const_iterator r=producedReactions.begin(); r != producedReactions.end(); r++) {
+			     
+			     if(ruleID_metabolites.find(r->rule_id)!=ruleID_metabolites.end()){	
+				cout << "count_aussen" << count_aussen;
+			       //for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter){
+                                              //cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl; 
+				for(map<string,vector<string> >::iterator iv = ruleID_metabolites.begin();iv!=ruleID_metabolites.end();++iv){
+					 //cout << "count rule_if metabolites in der if-schleife------------------------" <<(*iter) << endl;
+				//	cout << "----------------heurecA----------------------round" << r->rule_id << endl;
+					for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter)
+					{ //cout<<"----------------------------------------------------------------kprobe-------------------- count metab" << count_metab << endl;
+						  cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl;
+
+						for(vector<string>::iterator jv=(*iv).second.begin();jv!=(*iv).second.end();++jv)
+						{
+							//cout << "die eintraege des vectors in der map, die man herausgesucht hat" << (*jv) << endl; 
+						vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
+
+						//cout << *i << endl;
+						if(i != (*iv).second.end())
+						{ //cout << "count_gefunden" << endl; 
+						//	cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!1picked Reaction!!!!!!!!!!!!11" << *iter << endl;
+							pickedReaction = r;
+							break;
+							count_gefunden += 1;
+						}
+							//pickedReaction = r; 
+						}
+						/*for(vector<string>::iterator jv = (*iv).second.begin();jv!=(*iv).second.end();++jv)
+						{
+						 cout << (*jv) << "------------" << endl; 
+						}*/
+						
+						//cout << " innercircledie metabolites dazu:!" << *iter << endl;
+					        }
+					count_rule_if += 1; 
+					}
+				 count_rule_id_metab +=1;
+				 //else
+				 //{ cout << "----------------else in der else schleife----------------------round" << r->rule_id << endl;
+                                   //     for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter)
+                                     //   { cout<<"----------------------------------------------------------------kprobe--------------------" << endl;
+                                       //         for(vector<string>::iterator jv=(*iv).second.begin();jv!=(*iv).second.end();++jv)
+                                         //       {
+                                           //     vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
+                                             //   if(i != (*iv).second.end())
+                                               // {
+                                                 //       cout << "else" << *iter << endl;
+                                                   //     pickedReaction = r;
+                                                     //   break;
+                                                //}
+                                                //}
+
+                                                /*for(vector<string>::iterator jv = (*iv).second.begin();jv!=(*iv).second.end();++jv)
+                                                {
+                                                 cout << (*jv) << "------------" << endl;
+                                                }*/
+
+                                                //cout << " innercircledie metabolites dazu:!" << *iter << endl;
+                                                //}
+
+				 //}
+				}
+				count_aussen +=1;
+			}
+			/* find according reaction (TODO could be done via binary search since reactions are ordered by ruleID)
 			MR_Reactions::Reaction_Container::const_iterator pickedReaction = producedReactions.end();
 			for (MR_Reactions::Reaction_Container::const_iterator r=producedReactions.begin(); r != producedReactions.end(); r++) {
 				// check if reaction for picked rule
@@ -1207,7 +1387,7 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;
 					}
 					pickedReactionNumber--;
 				}
-			}
+			}*/
 										    
 			std::cout << "======Ende====Ausgabe=====" << std::endl;
 
@@ -1265,27 +1445,275 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;
 				}
 			}
 //!!!!Ausgabe ProducedSmiles!!!!!!
-			std::cout << "================ProducedSmiles" << std::endl;
-			for (SMILES_container::const_iterator itryi =producedSmiles.begin(); itryi != producedSmiles.end(); itryi++)
-			{
+			//std::cout << "================ProducedSmiles" << std::endl;
+			/*for (SMILES_container::const_iterator itryi =producedSmiles.begin(); itryi != producedSmiles.end(); itryi++)
+			{       string generic_smile = extract_generic_smile(itryi->first);
+				vector<string> vec_pro;
+				vec_pro.push_back(generic_smile);
+
+				cout <<"!!!!!!!!!!!!!!!!vector of produced smiles!!!!!!!!!!!!!!!!" << endl;
+				for(int i = 0; i<vec_pro.size();++i)
+				{
+				 cout << vec_pro.at(i) << endl;
+				}
+				//string generic_smile = extract_generic_smile(itryi->first);
+				cout <<"string generic in produced smiles" << generic_smile << endl; 
+				if(mpl_produced.find(generic_smile)==mpl_produced.end())
+				{
+				  mpl_produced[generic_smile] = 1;
+				}
+				else
+				{
+					mpl_produced[generic_smile]++;
+				}
 			  //std::cout << std::endl << std::endl;
-			  std::cout << "Ausgabe ProducedSmiles" << itryi->first << std::endl;
+			  //std::cout << "Ausgabe ProducedSmiles" << itryi->first << std::endl;
+			}*/
+			/*cout << "------------------Produced SMILES in GENERIC Forme------------------"<< endl;
+			for(map<string,int>::iterator impd = mpl_produced.begin();impd!=mpl_produced.end();++impd)
+			{
+				cout << impd->first << " : " << impd->second <<endl; 
+			}
+                       cout << "----------------------------------ENDE------------------------" << endl; */
+
+			/*fill the map produced mit generic smiles 
+                             //zusammenfuegen von targetsmiles und produced smiles
+                       for(map<string,int>::iterator jp = mpl_ts.begin();jp!=mpl_ts.end();++jp)
+                        {
+                                map<string,int>::iterator kp = mpl_produced.find(jp->first);
+                                        if(kp != mpl_ts.end())
+                                        {
+                                         mpl_ts[jp->first] ++;
+                                        }
+                                  
+                        }*/
+
+                        /* cout <<"Nachdem alles zusammengefuegt wurde------------------ "<<endl;
+                        for(map<string,int>::iterator i = mpl_ts.begin();i!=mpl_ts.end();++i)
+                        {
+                                cout << i->first << " : " << i->second << endl;
+                        }
+                        cout << "EEEEEEEEEEEEEEEEEEEEEEEEENNNNNNNNNNNNNNNNNNNNDDDDDDDDDDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEE" << endl;
+                 //update of the time*/
+
+
+                        //fill the map mpl_ts_afterwards with the new entries of Target Smiles after removing the consumed educts
+			for(SMILES_container::const_iterator impl_ts = targetSmiles.begin();impl_ts!=targetSmiles.end();++impl_ts)
+			{
+				//string generic_smile = extract_generic_smile(impl_ts->first);
+				string smi_to_can = smi_converter(impl_ts->first); 
+				//fill the map
+				if(mpl_ts_afterwards.find(smi_to_can)==mpl_ts_afterwards.end())//mpl_ts_afterwards.find(generic_smile)==mpl_ts_afterwards.end())
+				{
+				  mpl_ts_afterwards[smi_to_can]=1;// mpl_ts_afterwards[generic_smile] = 1;
+				}
+				else
+				{
+				  mpl_ts_afterwards[smi_to_can]++;//mpl_ts_afterwards[generic_smile] ++;
+				}
+			}
+				//22222
+				//cout <<"------------------------------------------------Ausgabe target smiles vor dem Vergleich!!!!" << endl; 
+			/*for (SMILES_container::const_iterator iteratotry1 =targetSmiles.begin(); iteratotry1 != targetSmiles.end(); iteratotry1++)
+                        {
+                          //std::cout << std::endl << std::endl;
+                          std::cout << "Ausgabe TargetSmiles" << iteratotry1->first << std::endl;
+                          }*/
+
+			cout << "-------------ausgabe mpl_ts_afterwards--------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!-" << endl;
+			for(map<string,int>::iterator x = mpl_ts_afterwards.begin();x != mpl_ts_afterwards.end();++x)
+			{
+			//	cout << x->first << " : " << x->second << endl; 
 			}
 
+			//vergleichen von mpl_ts und mpl_ts_afterwards
+
+			for(map<string,int>::iterator x = mpl_ts.begin();x != mpl_ts.end();++x)
+			{
+				map<string,int>::iterator iter = mpl_ts_afterwards.find(x->first);
+				if(iter != mpl_ts_afterwards.end())
+				{
+				  if(x->second > iter->second)
+			          {
+			            mpl_ts[x->first] --;
+				  }
+				  if(x->second < iter->second)
+				  {
+				   mpl_ts[x->first]++;
+				  }
+				 }
+				else
+				{
+					mpl_ts[x->first]--;
+				}
+			}
+		       cout << "MPL_TS nach dem Vergleich mit mpls_ts afterwards " << endl;
+		       for(map<string,int>::iterator x = mpl_ts.begin();x != mpl_ts.end();++x)
+                       {
+			       //cout << x->first << " : " << x->second << endl;
+		       }
+
+                          vector<string> vec_pro;
+			//hinzufuegen der Produced Smiles in mpl_ts_afterwards
+			for (SMILES_container::const_iterator itryi =producedSmiles.begin(); itryi != producedSmiles.end(); itryi++)
+                        {       //string generic_smile = extract_generic_smile(itryi->first);
+                                string smi_to_can = smi_converter(itryi->first);
+                                vec_pro.push_back(smi_to_can);//generic_smile);
+                               /* //string generic_smile = extract_generic_smile(itryi->first);
+                                cout <<"string generic in produced smiles" << generic_smile << endl;
+                                if(mpl_produced.find(generic_smile)==mpl_produced.end())
+                                {
+                                  mpl_produced[generic_smile] = 1;
+                                }
+                                else
+                                {
+                                        mpl_produced[generic_smile]++;
+                                }*/
+                         }
+			stringstream ps;
+			string pro_smile;
+			copy(vec_pro.begin(),vec_pro.end(),ostream_iterator<string>(ps,"\n"));
+			cout << "-----------halllllooooooo----" << ps.str() << endl; 
+			 cout <<"!!!!!!!!!!!!!!!!vector of produced smiles!!!!!!!!!!!!!!!!" << endl;
+                                for(int i = 0; i<vec_pro.size();++i)
+                                {
+                                 //cout << vec_pro.at(i) << endl;
+                                }
+                         while(ps >> pro_smile)
+	                 {
+				 map<string,int>::iterator it = mpl_ts.find(pro_smile);
+				 if(it == mpl_ts.end())
+				 {
+				  mpl_ts[pro_smile] = 1; 
+				 }
+				 else
+				{
+				 mpl_ts[pro_smile] += 1;
+				}
+		          }
+                        cout << " absolut neu -----------------" << endl; 
+                         for(map<string,int>::iterator x = mpl_ts.begin();x != mpl_ts.end();++x)
+                       {
+                               cout << x->first << " : " << x->second << endl;
+                       }
+
+			
+                        //update of the time;increase t by tau
+                            t = t+dt;
+
+			//output all variables to the output_file 
+			output_file << t << " ";
+			for(map<string,int>::iterator iout=mpl_ts.begin();iout!=mpl_ts.end();++iout)
+			{
+				output_file << iout->first << " " << iout->second << " ";
+			}
+				output_file << endl; 
+			
+			 /*for (SMILES_container::const_iterator itryi =producedSmiles.begin(); itryi != producedSmiles.end(); itryi++)
+         		 {
+				 string generic_smile = extract_generic_smile(itryi->first);
+				 cout << "----------------" << generic_smile << endl<< endl;
+				 for(map<string,int>::iterator i = mpl_ts_afterwards.begin();i!=mpl_ts_afterwards.end();++i)
+				 {
+				  map<string,int>::iterator ip = mpl_ts_afterwards.find(generic_smile);
+					  if(ip ==mpl_ts_afterwards.end())
+					  {
+					   mpl_ts_afterwards[generic_smile] =1;
+					   //cout << ip->first << " : " << ip->second;
+					   cout <<" == " <<  i->first << " : " << i->second << endl;   
+					  }
+					  else
+					  {
+				           mpl_ts_afterwards[generic_smile]++;
+					   //cout << ip->first << " : " << ip->second;
+                                           cout << " != " << i->first << " : " << i->second << endl;
+
+
+					  }
+				 }
+                         }
+
+			cout << "--------------------------Ausgabe new mpl_ts--------------------------" << endl;
+			for(map<string,int>::iterator i = mpl_ts_afterwards.begin();i!=mpl_ts_afterwards.end();++i)
+			{
+				cout << i->first << " : " << i->second << endl; 
+			}*/
+				/*produced smiles vergleichen mit afterwards
+				for(map<string,int>::iterator jp = mpl_ts_afterwards.begin();jp!=mpl_ts_afterwards.end();++jp)
+                        {
+                                map<string,int>::iterator kp = mpl_produced.find(jp->first);
+                                        if(kp == mpl_produced.end())
+                                        {
+                                         mpl_ts_afterwards[jp->first] ++;
+                                        }
+                                        else
+                                        {
+                                         mpl_ts[jp->first] --;
+                                        }
+                        }*/
+                          
+			//vergleichen der Eintraege:
+			/*for(map<string,int>::iterator j = mpl_ts.begin();j!=mpl_ts.end();++j)
+			{
+				map<string,int>::iterator k = mpl_ts_afterwards.find(j->first);
+				if(k != mpl_ts_afterwards.end())
+				{
+					if(j->second < k->second)
+					{
+					  mpl_ts[j->first]++;
+					}	
+					if(j->second > k->second)
+					{
+						cout << "JAAAAAAAAAAA" << endl;
+					 mpl_ts[j->first]--;
+					}
+				  
+				}
+				else
+				{ mpl_ts[j->first] --;
+
+				}
+			}
+			cout << "Ausgabe nach vergleich mpl_ts eintraege" << endl; 
+			for(map<string,int>::iterator i = mpl_ts.begin();i!=mpl_ts.end();++i)
+			{
+			 cout << i->first << " : " << i->second; 
+			}
+			cout << "------------ausgabe ende-----------------" << endl; 
 		        //!!!!Ausgabe TargetSmiles
-		        std::cout << "================ TargetSmiles" << std::endl; 
+		        /*std::cout << "================ Ausgabe TargetSmiles nach der Iteration" << std::endl; 
 			for (SMILES_container::const_iterator iteratotry1 =targetSmiles.begin(); iteratotry1 != targetSmiles.end(); iteratotry1++)
 			{
 			  //std::cout << std::endl << std::endl;
 			  std::cout << "Ausgabe TargetSmiles" << iteratotry1->first << std::endl;
-			  }
+			  }*/
+                       //zusammenfuegen von targetsmiles und produced smiles
+		       /*for(map<string,int>::iterator jp = mpl_ts_afterwards.begin();jp!=mpl_ts_afterwards.end();++jp)
+			{
+				map<string,int>::iterator kp = mpl_produced.find(jp->first);
+					if(kp == mpl_produced.end())
+					{
+					 mpl_ts_afterwards[jp->first] ++; 
+					}
+					else
+					{
+					 mpl_ts[jp->first] --;	
+					}
+			}*/
 
-		     
+		       /*	cout <<"Nachdem alles zusammengefuegt wurde------------------ "<<endl;
+			for(map<string,int>::iterator i = mpl_ts.begin();i!=mpl_ts.end();++i)
+			{
+				cout << i->first << " : " << i->second << endl;
+			}	
+		        cout << "EEEEEEEEEEEEEEEEEEEEEEEEENNNNNNNNNNNNNNNNNNNNDDDDDDDDDDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEE" << endl;*/ 
 		 //update of the time
-			    t = t+dt;
+		//	    t = t+dt;
 	    
 	        std::cout << "==============Beginn naechste Iteration===========" << std::endl; 						
-		mpl_ts.clear();		
+		mpl_ts.clear();
+		mpl_ts_afterwards.clear();
+		mpl_produced.clear();		
 		} // end rule application iteration loop
 		
 		
