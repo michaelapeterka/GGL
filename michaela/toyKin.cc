@@ -303,23 +303,49 @@ return a_my;
 }
 
 //calculate the total rule rate
-double rule_rate_total_calc(map<string,double> _rule_rates){
-  double a0 = 0.0;
-
-  for(map<string,double>::iterator iter = _rule_rates.begin();iter!=_rule_rates.end();++iter){
-   a0 += iter->second;
+double rule_rate_total_calc(multimap<string,multimap<double,vector<string> > > rule_ID)//(map<string,double> _rule_rates)
+{
+  map<string,double> ruleID_total;
+  for(multimap<string,multimap<double,vector<string> > >::iterator iter = rule_ID.begin(); iter != rule_ID.end(); ++iter)
+  {
+    if(ruleID_total.find(iter->first) == ruleID_total.end())
+    {
+      for(multimap<double,vector<string> >::iterator is = (*iter).second.begin(); is != (*iter).second.end(); ++is)
+      {
+        ruleID_total[iter->first] = (*is).first;
+      }
+    }
+    else
+    {
+      for(multimap<double,vector<string> >::iterator ie = (*iter).second.begin(); ie != (*iter).second.end(); ++ie)
+      {
+        ruleID_total[iter->first] = (*ie).first;
+      }
+    }
   }
-  return a0;
+  //add all values to Zustandssumme Z_total (Zustandssumme over all rules)
+  double Z_total = 0.0;//=a_0 double a0 = 0.0;
+
+  for(map<string,double>::iterator iterZ = ruleID_total.begin(); iterZ != ruleID_total.end();++iterZ)
+  {
+    Z_total += iterZ->second;	  
+  }
+
+  /*for(map<string,double>::iterator iter = _rule_rates.begin();iter!=_rule_rates.end();++iter){
+   a0 += iter->second;
+  }*/
+  return Z_total;
 }
 
 //calculate the ruleID according to reactionrate and energy -- gillespie part
-string calculate_ruleID(map<string,double> _rule_rates, double _rule_rate_total, double _r2){
+string calculate_ruleID(map<string,double> _rule_rates, double _r2)//_rule_rate_total wurde eleminiert
+{
 	double sum_a0 = 0.0;
 	string taken_ruleID;
   
  for(map<string,double>::iterator iter= _rule_rates.begin();iter!=_rule_rates.end();++iter){
 	 sum_a0+=iter->second;
-	 if(sum_a0 > _rule_rate_total*_r2){
+	 if(sum_a0 > _r2){
 	  taken_ruleID = iter->first;
 	  cout << "--------------ruleid-taken-----------"<< iter->first << endl;
 	 break; 
@@ -990,6 +1016,7 @@ int main( int argc, char** argv ) {
 		    }
                	 //initialize the time t
                    double t = 0.0;
+		   cout << "!!!!!!-------------ausgabe t-------------vor der schleife!!!!!!!!!!!!!!" << t << endl; 
 
 		  
 		//!!!Ende
@@ -1000,11 +1027,15 @@ int main( int argc, char** argv ) {
 		  // the list of all possible reaction instances
 		MR_Reactions::Reaction_Container producedReactions;
 
-			
 		  // make target molecules virtuelly the ones produced in the last iteration
 		std::swap(producedSmiles, targetSmiles);
 
-		
+		cout<< "------EVERYTHINGS STARTS HERE--------------" << endl;
+	        cout << "ausgabe produced smiles-----------" << endl;
+		for(SMILES_container::const_iterator tts = producedSmiles.begin();tts!=producedSmiles.end();tts++){
+                                cout << tts->first << endl;
+                        }
+
 		  // perform iterations
 		for (size_t it=0; it<iterations; ++it ) {
 
@@ -1067,7 +1098,8 @@ int main( int argc, char** argv ) {
 			for (std::map<std::string,int>::const_iterator itera = mpl_ts.begin();itera != mpl_ts.end();itera++){
 				cout << itera -> first << " : " << itera -> second << endl;	
 			}
-
+			
+			cout << "---------------ausgabe t in der schleife-----------------------" << t << endl; 
 		       //generate random numbers
                            double r0 = random_number01();
 			   cout << " random_number_0 : " << r0 << endl; 
@@ -1087,6 +1119,7 @@ int main( int argc, char** argv ) {
 			double rule_rate_total=0.0; //a0;
 			string rule_taken;
 			double dt = 0.0; //random waiting time
+			cout << "!!!!!!!!!!!!!!!!!1-------------------delta t------------------!!!!!!!!!!!!!!!" << dt <<  endl; 
 			//NEUE VERSION VOM 03.05.2020 ENDE
 			// get number of reaction instances for each rule
 			typedef std::map< std::string, size_t > RuleHist;
@@ -1203,13 +1236,14 @@ for(map<string,double>::iterator i=rule_rates.begin();i!=rule_rates.end();++i){
 }*/
 
 //calculate the total rule_rate
-rule_rate_total = rule_rate_total_calc(ruleID_percentage);//(rule_rates);
+rule_rate_total = rule_rate_total_calc(ruleID);//(ruleID_percentage);//(rule_rates);
 //cout<<"----------rule_rate_total--------------" << rule_rate_total << endl;
 
 //calculate dt (=waiting time) --!!!!!muss noch geaendert werden, da propensity geandert wurde !!!!!!!!!!!!!
 dt = (-log(r0))/rule_rate_total;
+cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------delta t nachdem es berechnet wurde------------------!!!!!!!!!!!!!!!" << dt << endl; 
 //calculate the ruleID
-rule_taken = calculate_ruleID(ruleID_percentage,rule_rate_total,r1);//(rule_rates,rule_rate_total,r1); 
+rule_taken = calculate_ruleID(ruleID_percentage,r1);//(rule_rates,rule_rate_total,r1) rule-rate total wurde eliminiert, da a0 1 sein muss; 
 //ausgabe der genommenen ruleID - just temporary
 cout <<"-------------------ruleID which is taken---------------" << rule_taken << endl;
 
@@ -1315,8 +1349,9 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;*/
 			       //for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter){
                                               //cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl; 
 				for(map<string,vector<string> >::iterator iv = ruleID_metabolites.begin();iv!=ruleID_metabolites.end();++iv){
-					 //cout << "count rule_if metabolites in der if-schleife------------------------" <<(*iter) << endl;
+					 
 				//	cout << "----------------heurecA----------------------round" << r->rule_id << endl;
+					set<string> to_find((*iv).second.begin(),(*iv).second.end());
 					for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter)
 					{ //cout<<"----------------------------------------------------------------kprobe-------------------- count metab" << count_metab << endl;
 						  cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl;
@@ -1324,52 +1359,26 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;*/
 						for(vector<string>::iterator jv=(*iv).second.begin();jv!=(*iv).second.end();++jv)
 						{
 							//cout << "die eintraege des vectors in der map, die man herausgesucht hat" << (*jv) << endl; 
-						vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
+							vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
 
-						//cout << *i << endl;
-						if(i != (*iv).second.end())
-						{ //cout << "count_gefunden" << endl; 
+							if(i != (*iv).second.end())
+							{ //cout << "count_gefunden" << endl; 
 						//	cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!1picked Reaction!!!!!!!!!!!!11" << *iter << endl;
-							pickedReaction = r;
-							break;
-							count_gefunden += 1;
+							//pickedReaction = r;
+							//break;
+							to_find.erase(*iter);
+							}
+							 
 						}
-							//pickedReaction = r; 
-						}
-						/*for(vector<string>::iterator jv = (*iv).second.begin();jv!=(*iv).second.end();++jv)
-						{
-						 cout << (*jv) << "------------" << endl; 
-						}*/
 						
-						//cout << " innercircledie metabolites dazu:!" << *iter << endl;
-					        }
-					count_rule_if += 1; 
 					}
+					 if(to_find.empty())
+					 {
+					 	pickedReaction = r;
+						break;
+					 }
+				}
 				 count_rule_id_metab +=1;
-				 //else
-				 //{ cout << "----------------else in der else schleife----------------------round" << r->rule_id << endl;
-                                   //     for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter)
-                                     //   { cout<<"----------------------------------------------------------------kprobe--------------------" << endl;
-                                       //         for(vector<string>::iterator jv=(*iv).second.begin();jv!=(*iv).second.end();++jv)
-                                         //       {
-                                           //     vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
-                                             //   if(i != (*iv).second.end())
-                                               // {
-                                                 //       cout << "else" << *iter << endl;
-                                                   //     pickedReaction = r;
-                                                     //   break;
-                                                //}
-                                                //}
-
-                                                /*for(vector<string>::iterator jv = (*iv).second.begin();jv!=(*iv).second.end();++jv)
-                                                {
-                                                 cout << (*jv) << "------------" << endl;
-                                                }*/
-
-                                                //cout << " innercircledie metabolites dazu:!" << *iter << endl;
-                                                //}
-
-				 //}
 				}
 				count_aussen +=1;
 			}
@@ -1600,6 +1609,7 @@ cout <<"RUleID and Metabolites END ---------------------" << endl;*/
 			
                         //update of the time;increase t by tau
                             t = t+dt;
+			    cout <<"!!!!!!!!!------------------ausgabe t nachdem es durch dt upgedatet wurde----------------------!!!!!!!!!!!!!!" << t << endl; 
 
 			//output all variables to the output_file 
 			output_file << t << " ";
