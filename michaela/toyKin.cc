@@ -194,11 +194,13 @@ double energy_per_instance(double sum_products, double sum_metabolites)
 	return boltzmann;
 }
 
+typedef multimap<double,vector<string> > dE_met;
+
 //version 03.05.2020 Beginn
 //calculate the energy of metabolites and products and return a multimap 
-multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<string> products, map<string,double>& look_up_map)
+dE_met rule_dE(vector<string> metabolites, vector<string> products, map<string,double>& look_up_map)
 {
-	multimap<double,vector<string> > rule_;
+	dE_met rule_;
 	double sum_metabolites = 0.0;
 	double sum_products = 0.0;
 	double dE = 0.0;
@@ -227,22 +229,22 @@ multimap<double,vector<string> > rule_dE(vector<string> metabolites, vector<stri
 }
 
 //add all energy values per reaction instance per rule and norm it via Zustandssumme(since the energyvalues are already as boltzmannfaktors, they have to be added-> boltzmannfaktors have to be added!!)
-map<string, double> ruleID_calc(multimap<string, multimap<double, vector<string> > > ruleID)
+map<string, double> ruleID_calc(multimap<string, dE_met> ruleID)
 {
 	map<string, double> ruleID_total;
 	//add all values of the multimap ruleID --> they are in boltzmannfactors --> so you have to add  them exp(dE)+exp(dE) <=> 2*exp(dE)
-	for(multimap<string, multimap<double, vector<string> > >::iterator iter=ruleID.begin(); iter != ruleID.end(); ++iter)
+	for(multimap<string, dE_met>::iterator iter=ruleID.begin(); iter != ruleID.end(); ++iter)
 	{
 		if(ruleID_total.find(iter->first) == ruleID_total.end())
 		{
-			for(multimap<double, vector<string> >::iterator ii = (*iter).second.begin(); ii != (*iter).second.end(); ++ii)
+			for(dE_met::iterator ii = (*iter).second.begin(); ii != (*iter).second.end(); ++ii)
 			{
 				ruleID_total[iter->first] = (*ii).first;
 			}
 		}
 		else
 		{
-			for(multimap<double,vector<string> >::iterator ij=(*iter).second.begin();ij!=(*iter).second.end();++ij)
+			for(dE_met::iterator ij=(*iter).second.begin();ij!=(*iter).second.end();++ij)
 			{
 				ruleID_total[iter->first]+=(*ij).first;
 			}
@@ -338,21 +340,21 @@ map<string,double> rule_rates_calc(map<string, double> _ruleID_percentage,map<st
 }
 
 //calculate the total rule rate
-double rule_rate_total_calc(multimap<string,multimap<double,vector<string> > > rule_ID)//(map<string,double> _rule_rates)
+double rule_rate_total_calc(multimap<string,dE_met> rule_ID)//(map<string,double> _rule_rates)
 {
 	map<string,double> ruleID_total;
-	for(multimap<string,multimap<double,vector<string> > >::iterator iter = rule_ID.begin(); iter != rule_ID.end(); ++iter)
+	for(multimap<string,dE_met>::iterator iter = rule_ID.begin(); iter != rule_ID.end(); ++iter)
 	{
 		if(ruleID_total.find(iter->first) == ruleID_total.end())
 		{
-			for(multimap<double,vector<string> >::iterator is = (*iter).second.begin(); is != (*iter).second.end(); ++is)
+			for(dE_met::iterator is = (*iter).second.begin(); is != (*iter).second.end(); ++is)
 			{
 				ruleID_total[iter->first] = (*is).first;
 			}
 		}
 		else
 		{
-			for(multimap<double,vector<string> >::iterator ie = (*iter).second.begin(); ie != (*iter).second.end(); ++ie)
+			for(dE_met::iterator ie = (*iter).second.begin(); ie != (*iter).second.end(); ++ie)
 			{
 				ruleID_total[iter->first] = (*ie).first;
 			}
@@ -442,20 +444,20 @@ int reaction_taken(vector<double> _instance_energy)
 }
 
 //calculate the ruleID and the metabolites according to the ruleID
-map<string,vector<string> > calc_ruleID_met(multimap<string,multimap<double,vector<string> > > _ruleID, string _ruleID_taken)
+map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, string _ruleID_taken)
 {
 	vector<double> instance_energy;
 	vector<string> vec_tmp;
 	int rp = 0; 
 
 	//iterators for equal range
-	typedef multimap<string,multimap<double,vector<string> > >::iterator ip;
+	typedef multimap<string,dE_met>::iterator ip;
 	pair<ip,ip> result = _ruleID.equal_range(_ruleID_taken);
 
 	//iterator outermap
-	multimap<string,multimap<double,vector<string> > >::iterator om;
+	multimap<string,dE_met>::iterator om;
 	//iterator innermap
-	multimap<double,vector<string> >::iterator im;
+	dE_met::iterator im;
 	//iteraotr vector
 	vector<string>::iterator vecin;
 
@@ -1166,7 +1168,6 @@ int main( int argc, char** argv ) {
 			vector<string> metabolites_all;	
 			vector<string> products_all;
 			//multimap for store the deltaE and metabolites(-->metabolites are unique)
-			typedef multimap<double,vector<string> > dE_met;
 			dE_met Emet;
 			multimap<string,dE_met> ruleID;	//store all ruleID-energyvalue-metabolites
 			map<string,double> ruleID_percentage;//stores the percentage per ruleID
@@ -1275,7 +1276,7 @@ int main( int argc, char** argv ) {
 			for(multimap<string,dE_met>::iterator irule=ruleID.begin();irule!=ruleID.end();++irule)
 			{
 				cout << irule->first << ":";
-				for(multimap<double,vector<string> >::iterator idE=(*irule).second.begin();idE!=(*irule).second.end();++idE)
+				for(dE_met::iterator idE=(*irule).second.begin();idE!=(*irule).second.end();++idE)
 				{
 					cout <<(*idE).first << ":";
 					for(vector<string>::iterator iv=(*idE).second.begin();iv!=(*idE).second.end();++iv)
