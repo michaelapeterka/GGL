@@ -450,10 +450,9 @@ int reaction_taken(vector<double> _instance_energy)
 }
 
 //calculate the ruleID and the metabolites according to the ruleID
-map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, string _ruleID_taken)
+map<string, MetabolitesAndProducts> calc_ruleID_met(multimap<string,dE_met> _ruleID, string _ruleID_taken)
 {
 	vector<double> instance_energy;
-	vector<string> vec_tmp;
 	int rp = 0; 
 
 	//iterators for equal range
@@ -464,8 +463,6 @@ map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, str
 	multimap<string,dE_met>::iterator om;
 	//iterator innermap
 	dE_met::iterator im;
-	//iteraotr vector
-	vector<string>::iterator vecin;
 
 	//store energyvaluesi
 	for(om = result.first;om!=result.second;++om)
@@ -483,7 +480,8 @@ map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, str
 	
 	//laufvariable
 	int l = 0; 
-
+	vector<string> metabolites_tmp;
+	vector<string> products_tmp;
 	for(om = result.first; om != result.second; ++om)
 	{
 		cout << om->first << endl;
@@ -491,18 +489,25 @@ map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, str
 		{
 			for(im = (*om).second.begin(); im != (*om).second.end(); ++im)
 			{
-				for(vecin = (*im).second.metabolites.begin(); vecin != (*im).second.metabolites.end(); ++vecin)
+				for(vector<string>::iterator vecin = (*im).second.metabolites.begin(); vecin != (*im).second.metabolites.end(); ++vecin)
 				{
-					vec_tmp.push_back(*vecin);
+					metabolites_tmp.push_back(*vecin);
 					cout << *vecin << endl;  
 				}
+
+				for(vector<string>::iterator vecin = (*im).second.products.begin(); vecin != (*im).second.products.end(); ++vecin)
+				{
+					products_tmp.push_back(*vecin);
+					cout << *vecin << endl;  
+				}
+
 				break;
 			}
 		}
 		++l;
 	}
-	map<string,vector<string> > _ruleID_i;
-	_ruleID_i[_ruleID_taken]= vec_tmp;
+	map<string, MetabolitesAndProducts> _ruleID_i;
+	_ruleID_i[_ruleID_taken] = MetabolitesAndProducts{metabolites_tmp, products_tmp};
 
 	return _ruleID_i; 
 }
@@ -1323,8 +1328,8 @@ int main( int argc, char** argv ) {
 			cout <<"-------------------ruleID which is taken---------------" << rule_taken << endl;
 
 			//calculate the reaction_instance of the rule ID in an extern function- store ruleID and belonging metabolites!
-			map<string,vector<string> > ruleID_metabolites; //value is a vector because every metabolite is stored seperately - was preimplemented
-			ruleID_metabolites = calc_ruleID_met(ruleID,rule_taken);
+			//value is a vector because every metabolite is stored seperately - was preimplemented
+			map<string, MetabolitesAndProducts> ruleID_metabolites(calc_ruleID_met(ruleID,rule_taken));
 
 			//temporary output of map
 			/*cout << "ruleID and belonging metabolites of the instance---------------------------" << endl; 
@@ -1404,10 +1409,10 @@ int main( int argc, char** argv ) {
                         }*/
                         
 			cout << "ruleID and belonging metabolites of the instance---------------------------" << endl;
-			for(map<string,vector<string> >::iterator i = ruleID_metabolites.begin();i!=ruleID_metabolites.end();++i)
+			for(map<string, MetabolitesAndProducts>::iterator i = ruleID_metabolites.begin();i!=ruleID_metabolites.end();++i)
 			{
 				cout << i->first <<": " <<  endl;
-				for(vector<string>::iterator j = (*i).second.begin();j!=(*i).second.end();++j)
+				for(vector<string>::iterator j = (*i).second.metabolites.begin();j!=(*i).second.metabolites.end();++j)
 				{
 					cout << (*j) << endl;
 				}
@@ -1429,21 +1434,21 @@ int main( int argc, char** argv ) {
 					cout << "count_aussen" << count_aussen;
 					//for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter){
 					//cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl; 
-					for(map<string,vector<string> >::iterator iv = ruleID_metabolites.begin();iv!=ruleID_metabolites.end();++iv)
+					for(map<string, MetabolitesAndProducts>::iterator iv = ruleID_metabolites.begin();iv!=ruleID_metabolites.end();++iv)
 					{
 						//	cout << "----------------heurecA----------------------round" << r->rule_id << endl;
-						set<string> to_find((*iv).second.begin(),(*iv).second.end());
+						set<string> to_find((*iv).second.metabolites.begin(),(*iv).second.metabolites.end());
 						for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin(); iter != r->metabolites.end(); ++iter)
-						{ 
+						{
 							//cout<<"----------------------------------------------------------------kprobe-------------------- count metab" << count_metab << endl;
 							cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl;
 
-							for(vector<string>::iterator jv=(*iv).second.begin(); jv != (*iv).second.end(); ++jv)
+							for(vector<string>::iterator jv=(*iv).second.metabolites.begin(); jv != (*iv).second.metabolites.end(); ++jv)
 							{
 								//cout << "die eintraege des vectors in der map, die man herausgesucht hat" << (*jv) << endl; 
-								vector<string>::iterator i= find((*iv).second.begin(),(*iv).second.end(),(*iter));
+								vector<string>::iterator i = find((*iv).second.metabolites.begin(),(*iv).second.metabolites.end(),(*iter));
 
-								if(i != (*iv).second.end())
+								if(i != (*iv).second.metabolites.end())
 								{ 
 									//cout << "count_gefunden" << endl; 
 									//	cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!1picked Reaction!!!!!!!!!!!!11" << *iter << endl;
