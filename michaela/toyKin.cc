@@ -346,10 +346,10 @@ map<string,double> rule_rates_calc(map<string, double> _ruleID_percentage,map<st
 }
 
 //calculate the total rule rate
-double rule_rate_total_calc(multimap<string,dE_met> rule_ID)//(map<string,double> _rule_rates)
+double rule_rate_total_calc(multimap<string, dE_met> rule_ID)//(map<string,double> _rule_rates)
 {
-	map<string,double> ruleID_total;
-	for(multimap<string,dE_met>::iterator iter = rule_ID.begin(); iter != rule_ID.end(); ++iter)
+	map<string, double> ruleID_total;
+	for(multimap<string, dE_met>::iterator iter = rule_ID.begin(); iter != rule_ID.end(); ++iter)
 	{
 		if(ruleID_total.find(iter->first) == ruleID_total.end())
 		{
@@ -369,7 +369,7 @@ double rule_rate_total_calc(multimap<string,dE_met> rule_ID)//(map<string,double
 	//add all values to Zustandssumme Z_total (Zustandssumme over all rules)
 	double Z_total = 0.0;//=a_0 double a0 = 0.0;
 
-	for(map<string,double>::iterator iterZ = ruleID_total.begin(); iterZ != ruleID_total.end(); ++iterZ)
+	for(map<string, double>::iterator iterZ = ruleID_total.begin(); iterZ != ruleID_total.end(); ++iterZ)
 	{
 		Z_total += iterZ->second;	  
 	}
@@ -1434,10 +1434,10 @@ int main( int argc, char** argv ) {
 					cout << "count_aussen" << count_aussen;
 					//for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin();iter!=r->metabolites.end();++iter){
 					//cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl; 
-					for(map<string, MetabolitesAndProducts>::iterator iv = ruleID_metabolites.begin();iv!=ruleID_metabolites.end();++iv)
+					for(map<string, MetabolitesAndProducts>::iterator iv = ruleID_metabolites.begin(); iv!=ruleID_metabolites.end(); ++iv)
 					{
 						//	cout << "----------------heurecA----------------------round" << r->rule_id << endl;
-						set<string> to_find((*iv).second.metabolites.begin(),(*iv).second.metabolites.end());
+						set<string> to_find((*iv).second.metabolites.begin(), (*iv).second.metabolites.end());
 						for(Reaction::Metabolite_Container::const_iterator iter = r->metabolites.begin(); iter != r->metabolites.end(); ++iter)
 						{
 							//cout<<"----------------------------------------------------------------kprobe-------------------- count metab" << count_metab << endl;
@@ -1446,7 +1446,7 @@ int main( int argc, char** argv ) {
 							for(vector<string>::iterator jv=(*iv).second.metabolites.begin(); jv != (*iv).second.metabolites.end(); ++jv)
 							{
 								//cout << "die eintraege des vectors in der map, die man herausgesucht hat" << (*jv) << endl; 
-								vector<string>::iterator i = find((*iv).second.metabolites.begin(),(*iv).second.metabolites.end(),(*iter));
+								vector<string>::iterator i = find((*iv).second.metabolites.begin(), (*iv).second.metabolites.end(), (*iter));
 
 								if(i != (*iv).second.metabolites.end())
 								{ 
@@ -1458,7 +1458,26 @@ int main( int argc, char** argv ) {
 								}
 							}
 						}
-						if(to_find.empty())
+
+						set<string> to_find_products((*iv).second.products.begin(),(*iv).second.products.end());
+						for(Reaction::Metabolite_Container::const_iterator iter = r->products.begin(); iter != r->products.end(); ++iter)
+						{
+							//cout<<"----------------------------------------------------------------kprobe-------------------- count metab" << count_metab << endl;
+							cout << "Metabolites direkt von produced Reactions--------------------" << (*iter) << endl;
+
+							for(vector<string>::iterator jv = (*iv).second.products.begin(); jv != (*iv).second.products.end(); ++jv)
+							{
+								//cout << "die eintraege des vectors in der map, die man herausgesucht hat" << (*jv) << endl; 
+								vector<string>::iterator i = find((*iv).second.products.begin(), (*iv).second.products.end(), (*iter));
+
+								if(i != (*iv).second.products.end())
+								{ 
+									to_find_products.erase(*iter);
+								}
+							}
+						}
+
+						if(to_find.empty() && to_find_products.empty())
 						{
 							pickedReaction = r;
 							break;
