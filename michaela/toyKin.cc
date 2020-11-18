@@ -194,7 +194,13 @@ double energy_per_instance(double sum_products, double sum_metabolites)
 	return boltzmann;
 }
 
-typedef multimap<double,vector<string> > dE_met;
+struct MetabolitesAndProducts
+{
+	vector<string> metabolites;
+	vector<string> products;
+};
+
+typedef multimap<double, MetabolitesAndProducts> dE_met;
 
 //version 03.05.2020 Beginn
 //calculate the energy of metabolites and products and return a multimap 
@@ -223,7 +229,7 @@ dE_met rule_dE(vector<string> metabolites, vector<string> products, map<string,d
 	dE = energy_per_instance(sum_products, sum_metabolites);
 
 	//put all together in one multimap
-	rule_.insert(make_pair(dE, metabolites));
+	rule_.insert(make_pair(dE, MetabolitesAndProducts{metabolites, products}));
 
 	return rule_;
 }
@@ -485,7 +491,7 @@ map<string,vector<string> > calc_ruleID_met(multimap<string,dE_met> _ruleID, str
 		{
 			for(im = (*om).second.begin(); im != (*om).second.end(); ++im)
 			{
-				for(vecin = (*im).second.begin(); vecin != (*im).second.end(); ++vecin)
+				for(vecin = (*im).second.metabolites.begin(); vecin != (*im).second.metabolites.end(); ++vecin)
 				{
 					vec_tmp.push_back(*vecin);
 					cout << *vecin << endl;  
@@ -1279,7 +1285,7 @@ int main( int argc, char** argv ) {
 				for(dE_met::iterator idE=(*irule).second.begin();idE!=(*irule).second.end();++idE)
 				{
 					cout <<(*idE).first << ":";
-					for(vector<string>::iterator iv=(*idE).second.begin();iv!=(*idE).second.end();++iv)
+					for(vector<string>::iterator iv=(*idE).second.metabolites.begin();iv!=(*idE).second.metabolites.end();++iv)
 					{
 						cout << (*iv) << endl;
 					}
