@@ -18,44 +18,53 @@ using namespace OpenBabel;
 using namespace boost::algorithm;
 
 double energie_calculation(std::string molecule,std::map<string,double>& look_up_map)
-{
+{	//outputfile for canonical smiles
+	ofstream output_file;
+	output_file.open("canSmiles.txt",ios::app);
+	if(!output_file)
+	{
+		cerr << "Sorry, can not open output file" << endl;
+	}
 	//canonicalization of the input smiles
 	//1. stringstream for input_smile
-	   string input = molecule;
-           stringstream input_smiles;
+		string input = molecule;
+		stringstream input_smiles;
  
            //fill stringstream
-	   input_smiles << input << endl;
+		input_smiles << input << endl;
 
 	//2. stringstream for output
-	   stringstream output_smiles;
+		stringstream output_smiles;
 	
 	//3. Set up OpenBabel format converter
-	  OBConversion conv(&input_smiles,&output_smiles);
-	  if(!conv.SetInAndOutFormats("smi","can")){
-		  cerr << "Can not open output file" << endl; 
-          }
+		OBConversion conv(&input_smiles,&output_smiles);
+		if(!conv.SetInAndOutFormats("smi","can"))
+		{
+			cerr << "Can not open output file" << endl; 
+          	}
 	   
 	  //convert molecule
 	  int n = conv.Convert();
-	  cout << n << "molecules converted" << endl;
+	  //cout << n << "molecules converted" << endl;
          
         //4. Energy value from look-up table
 	  //use boost library to trim (delete the whitespace before and after the canonical string to get the same size)
- 	  string canonical = output_smiles.str();
-	  string new_canonical = trim_copy(canonical);
+		string canonical = output_smiles.str();
+		string new_canonical = trim_copy(canonical);
 
 	  //iterate through map
-	   double value = 0.0;
-	   map<string,double>::iterator iten = look_up_map.find(new_canonical);
-	   if(iten != look_up_map.end())
-	   {
-		   value = iten ->second;
-		   cout << "GOT IT" << iten -> first << " : " << iten->second << endl;
-           }
-	   else
-	   { 
-		   cerr << "sorry, no such molecule in look-up table" << endl; 
-	   }	    
+		double value = 0.0;
+		map<string,double>::iterator iten = look_up_map.find(new_canonical);
+		output_file<< new_canonical << endl;
+		if(iten != look_up_map.end())
+		{
+			value = iten ->second;
+		  // cout << "GOT IT" << iten -> first << " : " << iten->second << endl;
+           	}
+		else
+	   	{	 
+			cerr << "sorry, no such molecule in look-up table" << endl; 
+			output_file << "sorry, not in the look-up table" << endl; 
+ 		}	     
 return value; 
 }
