@@ -19,6 +19,7 @@ rule[
   edge[source 0 target 1 label "="]
   edge[source 0 target 4 label "-"]
   edge[source 0 target 5 label "-"]
+  edge[source 1 target 6 label "-"]
  ]
  right[
   edge[source 1 target 2 label "-"]
